@@ -14,7 +14,16 @@
     <style>
         :root { --gold: #b38b67; --dark: #2c3e50; --success: #25D366; --danger: #e74c3c; --bg: #f4f7f6; --info: #2980b9; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: #333; margin: 0; }
-        .software-card { max-width: 950px; margin: auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #ddd; }
+        .software-card { 
+    width: 100%; /* 98% se badalkar 100% karein */
+    max-width: 950px; 
+    margin: 0 auto; /* Margin auto rakhein */
+    background: white; 
+    border-radius: 12px; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+    overflow: visible; /* 'hidden' ko 'visible' karein taaki zoom mein content na kategi */
+    border: 1px solid #ddd; 
+}
         .bill-header { background: var(--dark); color: white; padding: 25px; text-align: center; border-bottom: 5px solid var(--gold); }
         .bill-header h1 { margin: 0; font-family: 'Georgia', serif; font-size: 50px; color: #f1c40f; letter-spacing: 4px; text-transform: uppercase; font-weight: bold; }
         .bill-header p { margin: 8px 0 0; font-size: 14px; opacity: 0.9; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
