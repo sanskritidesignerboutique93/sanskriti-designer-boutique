@@ -34,15 +34,15 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyBYtH5uQa0PlSTN4RASfA8t6wmO8c9Xa1k",
+  apiKey: "AAPKA_API_KEY",
   authDomain: "sanskriti-pos.firebaseapp.com",
-  databaseURL: "https://sanskriti-pos-default-rtdb.asia-southeast1.firebasedatabase.app",
+  // Ye URL aapke Realtime Database ke upar dikhta hai
+  databaseURL: "https://sanskriti-pos-default-rtdb.asia-southeast1.firebasedatabase.app", 
   projectId: "sanskriti-pos",
-  storageBucket: "sanskriti-pos.firebasestorage.app",
+  storageBucket: "sanskriti-pos.appspot.com",
   messagingSenderId: "425428983415",
   appId: "1:425428983415:web:1ec05d61403fdfae733072"
-};
-firebase.initializeApp(firebaseConfig);
+};firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // Stock load karne ka naya tarika
