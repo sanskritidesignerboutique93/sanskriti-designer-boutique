@@ -34,7 +34,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
 <script>
-// 1. Configuration
+// 2. Aapki Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
   authDomain: "pos-sanskriti.firebaseapp.com",
@@ -46,15 +46,15 @@ const firebaseConfig = {
   measurementId: "G-KLRDN822QM"
 };
 
-// 2. Pehle Initialize (Sirf ek baar)
+// 3. Sabse Pehle App ko 'Start' (Initialize) karna
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// 3. Phir Database (Sirf ek baar)
+// 4. AB Database ko connect karna (Sirf EK baar)
 const db = firebase.database();
 
-// 4. Dashboard Logic
+// 5. Dashboard ka Data Firebase se uthane ka logic
 function updateDashboard() {
     db.ref('sales').on('value', (snapshot) => {
         let totalSales = 0;
@@ -63,12 +63,14 @@ function updateDashboard() {
         if (snapshot.exists()) {
             snapshot.forEach((childSnapshot) => {
                 let bill = childSnapshot.val();
+                // Amount se ₹ aur comma hata kar number banana
                 let amt = parseFloat(String(bill.totalAmount).replace(/[^0-9.-]+/g,"")) || 0;
                 totalSales += amt;
                 billCount++;
             });
         }
         
+        // Screen par values dikhana
         if(document.getElementById('totalSales')) {
             document.getElementById('totalSales').innerText = "₹ " + totalSales.toLocaleString('en-IN');
         }
@@ -78,6 +80,7 @@ function updateDashboard() {
     });
 }
 
+// Page load hote hi function ko chala dena
 window.onload = updateDashboard;
 </script>
 

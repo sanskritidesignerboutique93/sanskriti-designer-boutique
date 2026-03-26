@@ -22,12 +22,10 @@ const firebaseConfig = {
 };
 
 // 3. PEHLE Initialize App karein
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
-// 4. AB Database define karein (Ye line Initialize ke BAAD honi chahiye)
 const db = firebase.database();
+firebase.initializeApp(firebaseConfig);
+// 4. AB Database define karein (Ye line Initialize ke BAAD honi chahiye)
+
 
 let billNumber = 1001;
 
