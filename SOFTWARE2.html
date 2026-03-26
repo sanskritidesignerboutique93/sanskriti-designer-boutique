@@ -9,40 +9,40 @@
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
 <script>
-// Yahan se lekar niche 'saveBill' function ke khatam hone tak replace karein
+// 2. Phir Configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
-    authDomain: "pos-sanskriti.firebaseapp.com",
-    databaseURL: "https://pos-sanskriti-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "pos-sanskriti",
-    storageBucket: "pos-sanskriti.firebasestorage.app",
-    messagingSenderId: "249116187571",
-    appId: "1:249116187571:web:d4d63de8e8b37baccbc9c6",
-    measurementId: "G-KLRDN822QM"
+  apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
+  authDomain: "pos-sanskriti.firebaseapp.com",
+  databaseURL: "https://pos-sanskriti-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pos-sanskriti",
+  storageBucket: "pos-sanskriti.firebasestorage.app",
+  messagingSenderId: "249116187571",
+  appId: "1:249116187571:web:d4d63de8e8b37baccbc9c6",
+  measurementId: "G-KLRDN822QM"
 };
 
-// Initialize Firebase
+// 3. PEHLE Initialize App karein
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
+
+// 4. AB Database define karein (Ye line Initialize ke BAAD honi chahiye)
 const db = firebase.database();
 
-// Bill Number Sync (Online)
+let billNumber = 1001;
+
+// Bill Number Sync
 db.ref('last_bill_no').on('value', (snap) => {
     if(snap.exists()) {
         billNumber = parseInt(snap.val()) + 1;
-        document.getElementById('displayBillNo').value = billNumber;
+        let el = document.getElementById('displayBillNo');
+        if(el) el.value = billNumber;
     }
 });
 
-// Online Save Function
-
-    // Firebase mein save karna
-    db.ref('sales/' + billNumber).set(billData).then(() => {
-        db.ref('last_bill_no').set(billNumber);
-        alert("Bill Saved Online!");
-        location.reload(); 
-    }).catch(err => alert("Error: " + err.message));
+// Baaki ka saveBill function...
+function saveBill() {
+    // ... aapka purana save logic ...
 }
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

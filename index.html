@@ -33,7 +33,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
 <script>
-// Naya Firebase Configuration
+// 2. Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
   authDomain: "pos-sanskriti.firebaseapp.com",
@@ -45,13 +45,15 @@ const firebaseConfig = {
   measurementId: "G-KLRDN822QM"
 };
 
-// Initialize Firebase
+// 3. Sabse pehle Initialize App (Ye line sabse upar honi chahiye)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
+
+// 4. AB Database define karein
 const db = firebase.database();
 
-// Dashboard ko Online Data se Update karna
+// Dashboard Update Logic
 function updateDashboard() {
     db.ref('sales').on('value', (snapshot) => {
         let totalSales = 0;
@@ -60,23 +62,23 @@ function updateDashboard() {
         if (snapshot.exists()) {
             snapshot.forEach((childSnapshot) => {
                 let bill = childSnapshot.val();
-                // Total Amount nikalna (cleaning currency symbols if any)
                 let amt = parseFloat(String(bill.totalAmount).replace(/[^0-9.-]+/g,"")) || 0;
                 totalSales += amt;
                 billCount++;
             });
         }
         
-        // Dashboard labels update karna
-        document.getElementById('totalSales').innerText = "₹ " + totalSales.toLocaleString('en-IN');
-        document.getElementById('totalBills').innerText = billCount;
+        if(document.getElementById('totalSales')) {
+            document.getElementById('totalSales').innerText = "₹ " + totalSales.toLocaleString('en-IN');
+        }
+        if(document.getElementById('totalBills')) {
+            document.getElementById('totalBills').innerText = billCount;
+        }
     });
 }
 
-// Page load hote hi update shuru karein
 window.onload = updateDashboard;
 </script>
-
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
     body{font-family:Arial;background:#f2f2f2;padding:20px;}
