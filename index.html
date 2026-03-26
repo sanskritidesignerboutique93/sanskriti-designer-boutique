@@ -3,7 +3,80 @@
 <head>
 <meta charset="UTF-8">
 <title>Sanskriti POS - Pro Edition</title>
-<script type="module" src="firebase.js"></script>
+
+<script>
+  // Aapka Personal PIN
+  const MY_PIN = "1024"; 
+  
+  function checkAccess() {
+    if (sessionStorage.getItem("access") !== "granted") {
+      let entry = prompt("Enter Access PIN:");
+      if (entry === MY_PIN) {
+        sessionStorage.setItem("access", "granted");
+        document.documentElement.style.display = "block"; // Sahi PIN par software dikhao
+      } else {
+        alert("Wrong PIN! Access Denied.");
+        document.documentElement.innerHTML = "<h1 style='color:red; text-align:center; margin-top:100px;'>ACCESS DENIED: WRONG PIN</h1>";
+        throw new Error("Access Denied"); // Sab kuch rokne ke liye
+      }
+    } else {
+      document.documentElement.style.display = "block";
+    }
+  }
+
+  // Pehle hi software chhupa do
+  document.documentElement.style.display = "none";
+  // Access check karo
+  checkAccess();
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+<script>
+// Naya Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
+  authDomain: "pos-sanskriti.firebaseapp.com",
+  databaseURL: "https://pos-sanskriti-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pos-sanskriti",
+  storageBucket: "pos-sanskriti.firebasestorage.app",
+  messagingSenderId: "249116187571",
+  appId: "1:249116187571:web:d4d63de8e8b37baccbc9c6",
+  measurementId: "G-KLRDN822QM"
+};
+
+// Initialize Firebase
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
+// Dashboard ko Online Data se Update karna
+function updateDashboard() {
+    db.ref('sales').on('value', (snapshot) => {
+        let totalSales = 0;
+        let billCount = 0;
+        
+        if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+                let bill = childSnapshot.val();
+                // Total Amount nikalna (cleaning currency symbols if any)
+                let amt = parseFloat(String(bill.totalAmount).replace(/[^0-9.-]+/g,"")) || 0;
+                totalSales += amt;
+                billCount++;
+            });
+        }
+        
+        // Dashboard labels update karna
+        document.getElementById('totalSales').innerText = "₹ " + totalSales.toLocaleString('en-IN');
+        document.getElementById('totalBills').innerText = billCount;
+    });
+}
+
+// Page load hote hi update shuru karein
+window.onload = updateDashboard;
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
     body{font-family:Arial;background:#f2f2f2;padding:20px;}
@@ -67,7 +140,7 @@
         <button onclick="showPage('sales')">Billing</button>
         <button onclick="showPage('history')">Sales History</button>
     </div>
-    <a href="software2.html" id="switchLink" class="switch-btn">🔄 Switch to Software 2</a>
+    <a href="SOFTWARE2.html" class="switch-btn">🔄 Switch to Software 2</a>
 </div>
 
 <div id="dashboard" class="section">

@@ -4,8 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sanskriti Premium POS - Barcode Pro Edition</title>
-<script type="module" src="firebase.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+   
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+<script>
+// Yahan se lekar niche 'saveBill' function ke khatam hone tak replace karein
+const firebaseConfig = {
+    apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
+    authDomain: "pos-sanskriti.firebaseapp.com",
+    databaseURL: "https://pos-sanskriti-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "pos-sanskriti",
+    storageBucket: "pos-sanskriti.firebasestorage.app",
+    messagingSenderId: "249116187571",
+    appId: "1:249116187571:web:d4d63de8e8b37baccbc9c6",
+    measurementId: "G-KLRDN822QM"
+};
+
+// Initialize Firebase
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
+
+// Bill Number Sync (Online)
+db.ref('last_bill_no').on('value', (snap) => {
+    if(snap.exists()) {
+        billNumber = parseInt(snap.val()) + 1;
+        document.getElementById('displayBillNo').value = billNumber;
+    }
+});
+
+// Online Save Function
+
+    // Firebase mein save karna
+    db.ref('sales/' + billNumber).set(billData).then(() => {
+        db.ref('last_bill_no').set(billNumber);
+        alert("Bill Saved Online!");
+        location.reload(); 
+    }).catch(err => alert("Error: " + err.message));
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         :root { --gold: #b38b67; --dark: #2c3e50; --success: #25D366; --danger: #e74c3c; --bg: #f4f7f6; --info: #2980b9; }
