@@ -5,19 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sanskriti Premium POS - Barcode Pro Edition</title>
     <script>
-  // Aapka Personal PIN (Ise badal sakte hain)
+  // Aapka Personal PIN
   const MY_PIN = "1024"; 
   
-  if (sessionStorage.getItem("access") !== "granted") {
-    let entry = prompt("Enter Access PIN:");
-    if (entry === MY_PIN) {
-      sessionStorage.setItem("access", "granted");
+  function checkAccess() {
+    if (sessionStorage.getItem("access") !== "granted") {
+      let entry = prompt("Enter Access PIN:");
+      if (entry === MY_PIN) {
+        sessionStorage.setItem("access", "granted");
+        document.documentElement.style.display = "block"; // Sahi PIN par software dikhao
+      } else {
+        alert("Wrong PIN! Access Denied.");
+        document.documentElement.innerHTML = "<h1 style='color:red; text-align:center; margin-top:100px;'>ACCESS DENIED: WRONG PIN</h1>";
+        throw new Error("Access Denied"); // Sab kuch rokne ke liye
+      }
     } else {
-      alert("Wrong PIN!");
-      document.body.innerHTML = "<h1>Access Denied</h1>";
-      window.stop();
+      document.documentElement.style.display = "block";
     }
   }
+
+  // Pehle hi software chhupa do
+  document.documentElement.style.display = "none";
+  // Access check karo
+  checkAccess();
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
