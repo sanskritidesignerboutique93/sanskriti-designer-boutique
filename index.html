@@ -29,11 +29,12 @@
   // Access check karo
   checkAccess();
 </script>
+
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
 
 <script>
-// 2. Configuration
+// 1. Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
   authDomain: "pos-sanskriti.firebaseapp.com",
@@ -45,15 +46,15 @@ const firebaseConfig = {
   measurementId: "G-KLRDN822QM"
 };
 
-// 3. Sabse pehle Initialize App (Ye line sabse upar honi chahiye)
+// 2. Pehle Initialize (Sirf ek baar)
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// 4. AB Database define karein
+// 3. Phir Database (Sirf ek baar)
 const db = firebase.database();
 
-// Dashboard Update Logic
+// 4. Dashboard Logic
 function updateDashboard() {
     db.ref('sales').on('value', (snapshot) => {
         let totalSales = 0;
@@ -79,6 +80,7 @@ function updateDashboard() {
 
 window.onload = updateDashboard;
 </script>
+
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
     body{font-family:Arial;background:#f2f2f2;padding:20px;}
