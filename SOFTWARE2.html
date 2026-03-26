@@ -3,48 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sanskriti Premium POS - Barcode Pro Edition</title>
-   
-<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-
-<script>
-// 2. Phir Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
-  authDomain: "pos-sanskriti.firebaseapp.com",
-  databaseURL: "https://pos-sanskriti-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "pos-sanskriti",
-  storageBucket: "pos-sanskriti.firebasestorage.app",
-  messagingSenderId: "249116187571",
-  appId: "1:249116187571:web:d4d63de8e8b37baccbc9c6",
-  measurementId: "G-KLRDN822QM"
-};
-
-// 3. PEHLE Initialize App karein
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-// 4. AB Database define karein (Ye line Initialize ke BAAD honi chahiye)
-
-
-let billNumber = 1001;
-
-// Bill Number Sync
-db.ref('last_bill_no').on('value', (snap) => {
-    if(snap.exists()) {
-        billNumber = parseInt(snap.val()) + 1;
-        let el = document.getElementById('displayBillNo');
-        if(el) el.value = billNumber;
-    }
-});
-
-// Baaki ka saveBill function...
-function saveBill() {
-    // ... aapka purana save logic ...
-}
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <title>Sanskriti Premium POS - Barcode Pro Edition (Cloud DB)</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <style>
         :root { --gold: #b38b67; --dark: #2c3e50; --success: #25D366; --danger: #e74c3c; --bg: #f4f7f6; --info: #2980b9; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: #333; margin: 0; }
@@ -55,7 +21,6 @@ function saveBill() {
         .search-area { background: #fff9f0; padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
         .bill-no-display { color: var(--danger); font-weight: bold; font-size: 18px; border: 2px dashed var(--danger); padding: 4px 10px; border-radius: 4px; display: flex; align-items: center; }
         
-        /* New Style for Editable Bill No */
         #displayBillNo { width: 80px; border: none; background: transparent; color: var(--danger); font-size: 18px; font-weight: bold; outline: none; margin-left: 5px; cursor: text; }
         #displayBillNo:focus { border-bottom: 1px solid var(--danger); }
 
@@ -261,53 +226,6 @@ function saveBill() {
     </div>
 </div>
 
-<script>
-    // Baki sara code pehle jaisa hi rahega... bas ye naya function add kar lijiye
-
-    function exportDuesToExcel() {
-    // 1. Pehle header row banayein
-    let rows = [["Bill No", "Customer Name", "Mobile Number", "Pending Balance (Rs)"]];
-    
-    // 2. Saare bills ko localStorage se nikal kar ek array mein daalein
-    let billsArray = Object.keys(localStorage)
-        .filter(k => k.startsWith('bill_'))
-        .map(key => JSON.parse(localStorage.getItem(key)));
-
-    // 3. Bills ko Serial Number (ID) ke hisaab se sort karein (Chote se Bada)
-    billsArray.sort((a, b) => a.id - b.id);
-
-    // 4. Sorted array se data rows mein bharein
-    billsArray.forEach(d => {
-        let sub = d.items.reduce((s, i) => s + Number(i.worth), 0);
-        let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
-        let grand = sub - disc;
-        let paid = (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
-        let bal = grand - paid;
-
-        // Sirf pending balance wale bills Excel mein jayenge
-        if (bal > 0) {
-            rows.push([d.id, d.name, d.mob, bal]);
-        }
-    });
-
-    if (rows.length <= 1) {
-        alert("Koi pending dues nahi hain export karne ke liye!");
-        return;
-    }
-
-    // 5. Excel file generate karein
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pending Dues");
-    
-    let today = new Date().toLocaleDateString().replace(/\//g, '-');
-    XLSX.writeFile(wb, `Sanskriti_Dues_Report_${today}.xlsx`);
-}
-
-    // Baaki loadBill, saveBill functions same rahenge...
-</script>
-</div>
-
 <div id="customerModal" class="modal-overlay">
     <div class="modal-content">
         <h3 id="customerModalTitle">👤 Customer Info</h3>
@@ -320,31 +238,78 @@ function saveBill() {
 </div>
 
 <script>
-    let masterItems = JSON.parse(localStorage.getItem('sans_items')) || ["KURTA", "SUIT", "LEHENGA", "BLOUSE", "PANT"];
+    // -------------------------------------------------------------------------
+    // FIREBASE INITIALIZATION & CONFIGURATION
+    // -------------------------------------------------------------------------
+    const firebaseConfig={
+        apiKey:"AIzaSyAXvFE11EOiSMzauMs70i-TvqWoxo9vhMI",
+        authDomain:"z-dry-cleaners-2659b.firebaseapp.com",
+        databaseURL:"https://z-dry-cleaners-2659b-default-rtdb.firebaseio.com",
+        projectId:"z-dry-cleaners-2659b",
+        storageBucket:"z-dry-cleaners-2659b.firebasestorage.app",
+        messagingSenderId:"1040344070208",
+        appId:"1:1040344070208:web:e531ecca0590b29dfa87a5"
+    }
+
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.database();
+
+    // -------------------------------------------------------------------------
+    // GLOBAL VARIABLES (In-Memory Database Sync)
+    // -------------------------------------------------------------------------
+    let localBillsData = {}; // Saare bills Cloud se yaha sync honge
+    let masterItems = ["KURTA", "SUIT", "LEHENGA", "BLOUSE", "PANT"];
     let currentPayments = [], currentDeliveries = [];
-    let billNumber = localStorage.getItem('last_bill_no') ? parseInt(localStorage.getItem('last_bill_no')) + 1 : 2951;
+    let billNumber = 2951;
 
     function cleanDate(d) { if(!d) return "N/A"; let pts = d.split('-'); return pts.length === 3 ? `${pts[2]}/${pts[1]}/${pts[0]}` : d; }
 
     window.onload = () => {
-        document.getElementById('displayBillNo').value = billNumber; // Replaced innerText with value
         document.getElementById('kistDate').valueAsDate = new Date();
         document.getElementById('devDate').valueAsDate = new Date();
-        renderMaster();
+        
+        // 1. App load hone par ek baar database se details nikalna (For UI setup)
+        db.ref("sanskriti_data").once("value", (snapshot) => {
+            let data = snapshot.val() || {};
+            
+            localBillsData = data.bills || {};
+            
+            if(data.masterItems) {
+                masterItems = data.masterItems;
+            }
+            
+            if(data.lastBillNo) {
+                billNumber = parseInt(data.lastBillNo) + 1;
+            }
+
+            document.getElementById('displayBillNo').value = billNumber;
+            renderMaster(true); // render on UI but skip firebase overwrite
+        });
+
+        // 2. Realtime sync lagana taaki Excel/Dues search ekdum updated rahe
+        db.ref("sanskriti_data/bills").on("value", (snapshot) => {
+            localBillsData = snapshot.val() || {};
+        });
+
+        db.ref("sanskriti_data/masterItems").on("value", (snapshot) => {
+            let items = snapshot.val();
+            if(items) {
+                masterItems = items;
+                renderMaster(true);
+            }
+        });
     };
 
-    // Update manual bill number when typed
     function updateManualBillNo() {
         let manualNo = parseInt(document.getElementById('displayBillNo').value);
         if(!isNaN(manualNo) && manualNo > 0) {
             billNumber = manualNo;
         } else {
-            document.getElementById('displayBillNo').value = billNumber; // revert if invalid
+            document.getElementById('displayBillNo').value = billNumber;
         }
     }
 
     function saveBill() {
-        // Double check if user typed a number but didn't click outside the box
         updateManualBillNo(); 
 
         let name = document.getElementById('custName').value.trim();
@@ -389,32 +354,34 @@ function saveBill() {
         msg += ` - Delivered: ${devPcs}\n`;
         msg += ` - Remaining: ${pendingPcs}\n\n`;
 
-        // ... baaki code same rahega ...
-
-msg += `*Delivery Record:*\n`;
-if(currentDeliveries.length > 0) {
-    currentDeliveries.forEach(d => {
-        // Yahan se maine bracket hata diya hai taaki double )) na aaye
-        msg += ` - ${cleanDate(d.date)}: ${d.qty} Pcs - ${d.item}\n`;
-    });
-} else { 
-    msg += ` - No deliveries recorded\n`; 
-}
-
-// ... baaki code same rahega ...
+        msg += `*Delivery Record:*\n`;
+        if(currentDeliveries.length > 0) {
+            currentDeliveries.forEach(d => {
+                // Yahan se maine bracket hata diya hai taaki double )) na aaye
+                msg += ` - ${cleanDate(d.date)}: ${d.qty} Pcs - ${d.item}\n`;
+            });
+        } else { 
+            msg += ` - No deliveries recorded\n`; 
+        }
         
         msg += `*Expected Delivery:* ${cleanDate(document.getElementById('delDate').value)}\n`;
         msg += `---------------------------\n`;
         msg += `*Thank you!*`;
 
         const billData = { id: billNumber, name, mob, items, payments: currentPayments, deliveries: currentDeliveries, delDate: document.getElementById('delDate').value };
-        localStorage.setItem('bill_' + billNumber, JSON.stringify(billData));
         
-        // Save the currently used bill number so next time it increments from this
-        localStorage.setItem('last_bill_no', billNumber);
-
+        // WhatsApp tab directly open karenge browser refresh se pehle
         window.open(`https://wa.me/91${mob}?text=${encodeURIComponent(msg)}`, '_blank');
-        location.reload();
+
+        // ==== CLOUD SAVE LOGIC ====
+        db.ref('sanskriti_data/lastBillNo').set(billNumber);
+        db.ref('sanskriti_data/bills/bill_' + billNumber).set(billData, (error) => {
+            if(error) {
+                alert("Error saving to Cloud: " + error.message);
+            } else {
+                location.reload(); // Save hone ke baad page reload karna
+            }
+        });
     }
 
     function sendDueReminder(name, mob, balance, billId) {
@@ -439,10 +406,13 @@ if(currentDeliveries.length > 0) {
         e.currentTarget.classList.add('active');
     }
 
-    function renderMaster() {
+    function renderMaster(skipSave = false) {
         document.getElementById('masterList').innerHTML = masterItems.map(i => `<option value="${i}">`).join('');
         document.getElementById('masterChips').innerHTML = masterItems.map((item, idx) => `<span style="background:#eee; padding:5px 12px; border-radius:20px; font-size:12px; display:inline-block; margin:2px;">${item} <b style="color:red; cursor:pointer;" onclick="removeFromMaster(${idx})">×</b></span>`).join('');
-        localStorage.setItem('sans_items', JSON.stringify(masterItems));
+        
+        if(!skipSave) {
+            db.ref('sanskriti_data/masterItems').set(masterItems); // Save To Cloud
+        }
     }
 
     function addToMaster() {
@@ -562,10 +532,11 @@ if(currentDeliveries.length > 0) {
 
     function loadBill() {
         let id = document.getElementById('searchBillId').value;
-        let d = JSON.parse(localStorage.getItem('bill_' + id));
-        if(!d) return alert("Bill Not Found!");
+        let d = localBillsData['bill_' + id]; // Load from Firebase synced data
+        if(!d) return alert("Bill Not Found in Database!");
+        
         billNumber = d.id; 
-        document.getElementById('displayBillNo').value = d.id; // updated for new input
+        document.getElementById('displayBillNo').value = d.id;
         document.getElementById('custName').value = d.name; 
         document.getElementById('custMob').value = d.mob;
         document.getElementById('delDate').value = d.delDate || "";
@@ -574,41 +545,74 @@ if(currentDeliveries.length > 0) {
         updateDeliveryDropdown(); renderKists(); renderDeliveries(); calculate();
     }
 
-   function showDues() {
-    let html = "";
-    // Pehle saare bills ko ek array mein nikal kar sort karenge
-    let billsArray = Object.keys(localStorage)
-        .filter(k => k.startsWith('bill_'))
-        .map(key => JSON.parse(localStorage.getItem(key)));
+    function showDues() {
+        let html = "";
+        
+        // Saare bills ko Cloud memory (localBillsData) se nikal kar array me dalna
+        let billsArray = Object.keys(localBillsData)
+            .filter(k => k.startsWith('bill_'))
+            .map(key => localBillsData[key]);
 
-    // Serial Number (Bill ID) ke hisaab se sort (Chote se Bada)
-    billsArray.sort((a, b) => a.id - b.id);
+        billsArray.sort((a, b) => a.id - b.id);
 
-    billsArray.forEach(d => {
-        let sub = d.items.reduce((s, i) => s + Number(i.worth), 0);
-        let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
-        let grand = sub - disc;
-        let paid = (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
-        let bal = grand - paid;
+        billsArray.forEach(d => {
+            let sub = d.items.reduce((s, i) => s + Number(i.worth), 0);
+            let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
+            let grand = sub - disc;
+            let paid = (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+            let bal = grand - paid;
 
-        // Sirf wahi dikhayega jinka balance bacha hai
-        if(bal > 0) {
-            html += `<tr>
-                <td>${d.id}</td>
-                <td>${d.name}</td>
-                <td>${d.mob}</td>
-                <td>₹${bal}</td>
-                <td>
-                    <button class="btn-load" style="padding:5px 10px;" onclick="document.getElementById('searchBillId').value='${d.id}';loadBill();document.getElementById('duesModal').style.display='none'">LOAD</button>
-                    <button class="btn-wa-due" onclick="sendDueReminder('${d.name}', '${d.mob}', '${bal}', '${d.id}')">📲 WHATSAPP</button>
-                </td>
-            </tr>`;
+            if(bal > 0) {
+                html += `<tr>
+                    <td>${d.id}</td>
+                    <td>${d.name}</td>
+                    <td>${d.mob}</td>
+                    <td>₹${bal}</td>
+                    <td>
+                        <button class="btn-load" style="padding:5px 10px;" onclick="document.getElementById('searchBillId').value='${d.id}';loadBill();document.getElementById('duesModal').style.display='none'">LOAD</button>
+                        <button class="btn-wa-due" onclick="sendDueReminder('${d.name}', '${d.mob}', '${bal}', '${d.id}')">📲 WHATSAPP</button>
+                    </td>
+                </tr>`;
+            }
+        });
+
+        document.getElementById('duesBody').innerHTML = html || "<tr><td colspan='5' style='text-align:center;'>Sab clear hai! Koi dues nahi hain.</td></tr>";
+        document.getElementById('duesModal').style.display = 'block';
+    }
+
+    function exportDuesToExcel() {
+        let rows = [["Bill No", "Customer Name", "Mobile Number", "Pending Balance (Rs)"]];
+        
+        let billsArray = Object.keys(localBillsData)
+            .filter(k => k.startsWith('bill_'))
+            .map(key => localBillsData[key]);
+
+        billsArray.sort((a, b) => a.id - b.id);
+
+        billsArray.forEach(d => {
+            let sub = d.items.reduce((s, i) => s + Number(i.worth), 0);
+            let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
+            let grand = sub - disc;
+            let paid = (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+            let bal = grand - paid;
+
+            if (bal > 0) {
+                rows.push([d.id, d.name, d.mob, bal]);
+            }
+        });
+
+        if (rows.length <= 1) {
+            alert("Koi pending dues nahi hain export karne ke liye!");
+            return;
         }
-    });
 
-    document.getElementById('duesBody').innerHTML = html || "<tr><td colspan='5' style='text-align:center;'>Sab clear hai! Koi dues nahi hain.</td></tr>";
-    document.getElementById('duesModal').style.display = 'block';
-}
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Pending Dues");
+        
+        let today = new Date().toLocaleDateString().replace(/\//g, '-');
+        XLSX.writeFile(wb, `Sanskriti_Dues_Report_${today}.xlsx`);
+    }
 
     function searchCustomer() {
         let mob = document.getElementById('searchMobNo').value.trim();
@@ -617,8 +621,8 @@ if(currentDeliveries.length > 0) {
         let customerName = "Unknown";
         let matchingBills = [];
 
-        Object.keys(localStorage).filter(k => k.startsWith('bill_')).forEach(key => {
-            let d = JSON.parse(localStorage.getItem(key));
+        Object.keys(localBillsData).filter(k => k.startsWith('bill_')).forEach(key => {
+            let d = localBillsData[key];
             if (d.mob === mob) {
                 customerName = d.name;
                 matchingBills.push(d);
@@ -657,12 +661,14 @@ if(currentDeliveries.length > 0) {
 
     function exportDataToExcel() {
         let rows = [["Date", "Bill No", "Customer", "Mobile", "Pcs", "Grand Total", "Balance"]];
-        Object.keys(localStorage).filter(k => k.startsWith('bill_')).map(k => JSON.parse(localStorage.getItem(k))).sort((a,b) => a.id - b.id).forEach(d => {
+        
+        Object.keys(localBillsData).filter(k => k.startsWith('bill_')).map(k => localBillsData[k]).sort((a,b) => a.id - b.id).forEach(d => {
             let sub = d.items.reduce((s, i) => s + Number(i.worth), 0);
             let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
-            let paid = d.payments.reduce((s, p) => s + Number(p.amount), 0);
+            let paid = (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
             rows.push([cleanDate(d.delDate), d.id, d.name, d.mob, d.items.reduce((s, i) => s + Number(i.qty), 0), (sub-disc), (sub-disc-paid)]);
         });
+        
         const ws = XLSX.utils.aoa_to_sheet(rows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Sales");
