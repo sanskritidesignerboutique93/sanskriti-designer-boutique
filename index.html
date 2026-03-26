@@ -3,61 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Sanskriti POS - Pro Edition</title>
-
-<script>
-  // Aapka Personal PIN
-  const MY_PIN = "1024"; 
-  
-  function checkAccess() {
-    if (sessionStorage.getItem("access") !== "granted") {
-      let entry = prompt("Enter Access PIN:");
-      if (entry === MY_PIN) {
-        sessionStorage.setItem("access", "granted");
-        document.documentElement.style.display = "block"; // Sahi PIN par software dikhao
-      } else {
-        alert("Wrong PIN! Access Denied.");
-        document.documentElement.innerHTML = "<h1 style='color:red; text-align:center; margin-top:100px;'>ACCESS DENIED: WRONG PIN</h1>";
-        throw new Error("Access Denied"); // Sab kuch rokne ke liye
-      }
-    } else {
-      document.documentElement.style.display = "block";
-    }
-  }
-
-  // Pehle hi software chhupa do
-  document.documentElement.style.display = "none";
-  // Access check karo
-  checkAccess();
-</script>
-</script><script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AAPKA_API_KEY",
-  authDomain: "sanskriti-pos.firebaseapp.com",
-  // Ye URL aapke Realtime Database ke upar dikhta hai
-  databaseURL: "https://sanskriti-pos-default-rtdb.asia-southeast1.firebasedatabase.app", 
-  projectId: "sanskriti-pos",
-  storageBucket: "sanskriti-pos.appspot.com",
-  messagingSenderId: "425428983415",
-  appId: "1:425428983415:web:1ec05d61403fdfae733072"
-};firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-// Stock load karne ka naya tarika
-db.ref('stock').on('value', (snapshot) => {
-    inventory = snapshot.val() || {};
-    renderInventory();
-    updateProductDataList();
-});
-
-// Sales history load karne ka naya tarika
-db.ref('bills').on('value', (snapshot) => {
-    salesHistory = Object.values(snapshot.val() || {});
-    renderSalesHistory();
-});
-</script>
+<script type="module" src="firebase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <style>
     body{font-family:Arial;background:#f2f2f2;padding:20px;}
@@ -121,7 +67,7 @@ db.ref('bills').on('value', (snapshot) => {
         <button onclick="showPage('sales')">Billing</button>
         <button onclick="showPage('history')">Sales History</button>
     </div>
-    <a href="SOFTWARE2.html" class="switch-btn">🔄 Switch to Software 2</a>
+    <a href="software2.html" id="switchLink" class="switch-btn">🔄 Switch to Software 2</a>
 </div>
 
 <div id="dashboard" class="section">

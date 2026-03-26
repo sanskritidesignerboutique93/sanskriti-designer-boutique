@@ -4,55 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sanskriti Premium POS - Barcode Pro Edition</title>
-   const firebaseConfig = {
-  apiKey: "AIzaSyCcUxI5ye0FMB5n9KHuiwLcE8vgUX1oOf8",
-  authDomain: "pos-sanskriti.firebaseapp.com",
-  databaseURL: "https://pos-sanskriti-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "pos-sanskriti",
-  storageBucket: "pos-sanskriti.firebasestorage.app",
-  messagingSenderId: "249116187571",
-  appId: "1:249116187571:web:d4d63de8e8b37baccbc9c6",
-  measurementId: "G-KLRDN822QM"
-};
-<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-
-<script>
-// Same Firebase Config...
-const db = firebase.database();
-
-// Bill Number Sync
-db.ref('last_bill_no').on('value', (snap) => {
-    if(snap.exists()) {
-        billNumber = parseInt(snap.val()) + 1;
-        document.getElementById('displayBillNo').value = billNumber;
-    }
-});
-
-// Save Bill Function (Firebase Cloud)
-function saveBill() {
-    let name = document.getElementById('custName').value;
-    let mob = document.getElementById('custMob').value;
-    
-    let billData = {
-        invoice: billNumber,
-        customer: name,
-        mobile: mob,
-        items: Array.from(document.querySelectorAll('#itemRows tr')).map(r => ({
-            name: r.querySelector('.p-name').value,
-            qty: r.querySelector('.p-qty').value,
-            price: r.querySelector('.p-worth').value
-        })),
-        date: new Date().toISOString()
-    };
-
-    db.ref('bills/' + billNumber).set(billData).then(() => {
-        db.ref('last_bill_no').set(billNumber);
-        alert("Bill Cloud Par Save Ho Gaya!");
-    });
-}
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module" src="firebase.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <style>
         :root { --gold: #b38b67; --dark: #2c3e50; --success: #25D366; --danger: #e74c3c; --bg: #f4f7f6; --info: #2980b9; }
