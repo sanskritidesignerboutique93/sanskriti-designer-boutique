@@ -668,8 +668,8 @@
         document.getElementById('customerModal').style.display = 'block';
     }
 
-    function exportDataToExcel() {
-    // Column headers mein "Received" add kiya gaya hai
+   function exportDataToExcel() {
+    // Header mein 'Received' column add kiya gaya hai
     let rows = [["Date", "Bill No", "Customer", "Mobile", "Pcs", "Grand Total", "Received", "Balance"]];
     
     Object.keys(localBillsData).filter(k => k.startsWith('bill_')).map(k => localBillsData[k]).sort((a,b) => a.id - b.id).forEach(d => {
@@ -677,11 +677,11 @@
         let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
         let grandTotal = sub - disc;
         
-        // Yahan payments ka total nikala ja raha hai
-        let paid = (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+        // Agar cloud pe 'receivedAmount' hai toh wo uthayega, nahi toh purane tareeke se calculate karega
+        let paid = d.receivedAmount !== undefined ? d.receivedAmount : (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
+        
         let balance = grandTotal - paid;
 
-        // Row mein "paid" (Received) amount ko add kiya gaya hai
         rows.push([
             cleanDate(d.delDate), 
             d.id, 
