@@ -66,33 +66,38 @@
         .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; }
         .modal-content { background:white; width:95%; max-width:1000px; margin:40px auto; border-radius:8px; padding:20px; max-height:85vh; overflow-y:auto; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
+/* Terms ka style */
+        .terms-section { font-size: 11px; text-align: left; margin-top: 10px; border-top: 1px dashed black; padding-top: 5px; line-height: 1.2; color: #000; }
+        .terms-section b { font-size: 12px; display: block; margin-bottom: 2px; }   
+ 
+</style>
 </head>
 <body>
 
 <div class="software-card no-print">
     <div class="bill-header">
         <h1>SANSKRITI</h1>
-        <p>CHAUDHARY MARKET, SECTOR-93, NOIDA | PH: 9810893973</p>
+        <p>CHOUDHARY MARKET, SECTOR-93, NOIDA | PH: 9810893973</p>
     </div>
 
     <div class="search-area">
-        <div style="display:flex; gap:8px; flex-wrap: wrap;">
-            <input type="text" id="searchBillId" placeholder="Bill No" style="width:90px;">
-            <button class="btn-load" onclick="loadBill()">🔍 LOAD</button>
-            <button class="btn-load" style="background:#d35400;" onclick="showDues()">📊 DUES</button>
-            
-            <input type="text" id="searchMobNo" placeholder="Mob No" style="width:110px; margin-left:10px;" maxlength="10">
-            <button class="btn-load" style="background:#8e44ad;" onclick="searchCustomer()">📱 CUSTOMER</button>
-            
-            <button class="btn-load" style="background:#1f7244; margin-left:10px;" onclick="exportDataToExcel()">📥 EXCEL</button>
-            <button class="btn-load" style="background:#dc2626;" onclick="location.reload()">❌ CANCEL</button>
-        </div>
+    <div style="display: flex; align-items: center; gap: 5px; background: #fff3cd; padding: 5px; border-radius: 5px; border: 1px solid #ffeeba; margin-left: 10px;">
+        <input type="text" id="searchBillId" placeholder="Bill No" style="width:90px;">
+        <button class="btn-load" onclick="loadBill()">🔍 LOAD</button>
+        <button class="btn-load" style="background:#d35400;" onclick="showDues()">📊 DUES</button>
         
-        <div class="bill-no-display">
-            Bill No: <input type="number" id="displayBillNo" onchange="updateManualBillNo()" title="Click to edit Bill Number">
-        </div>
+        <input type="text" id="searchMobNo" placeholder="Mob No" style="width:110px; margin-left:10px;" maxlength="10">
+        <button class="btn-load" style="background:#8e44ad;" onclick="searchCustomer()">📱 CUSTOMER</button>
+        
+        <button class="btn-load" style="background:#1f7244; margin-left:10px;" onclick="exportDataToExcel()">📥 EXCEL</button>
+        <button class="btn-load" style="background:#2980b9; margin-left: 10px;" onclick="exportGSTReport()">📊 GST REPORT</button>
+        <button class="btn-load" style="background:#dc2626;" onclick="promptCancel()">❌ CANCEL</button>
     </div>
+    
+    <div class="bill-no-display">
+        Bill No: <input type="number" id="displayBillNo" onchange="updateManualBillNo()" title="Click to edit Bill Number">
+    </div>
+</div>
 
     <div class="tabs-nav">
         <button class="tab-btn active" onclick="switchTab(event, 'billing')">📝 BILLING & DELIVERY</button>
@@ -101,10 +106,15 @@
 
     <div id="billing" class="tab-content active">
         <div class="grid-3">
-            <div><label>Customer Name</label><input type="text" id="custName" placeholder="Full Name"></div>
-            <div><label>Mobile Number</label><input type="text" id="custMob" maxlength="10" placeholder="10 Digit Mobile"></div>
-            <div><label>Expected Delivery</label><input type="date" id="delDate"></div>
-        </div>
+    <div><label>Booking Date</label><input type="date" id="bookingDate"></div>
+    <div><label>Customer Name</label><input type="text" id="custName" list="nameSuggestions" placeholder="Full Name" autocomplete="off"></div>
+<div><label>Mobile Number</label><input type="text" id="custMob" list="mobileSuggestions" maxlength="10" placeholder="10 Digit Mobile" autocomplete="off"></div>
+    <div><label>Expected Delivery</label><input type="date" id="delDate"></div>
+</div>
+<div style="margin-bottom: 15px;">
+    <label>Customer Address</label>
+    <input type="text" id="custAddress" placeholder="Enter Full Address">
+</div>
 
         <div class="section-bar">
             <span>👗 ITEMS LIST</span>
@@ -150,7 +160,7 @@
         <div class="summary-box">
             <div>
                 <span style="opacity:0.8; font-size: 14px;">BILLING SUMMARY</span><br>
-                Total: ₹<span id="txtSubTotal">0</span> | Discount: ₹<span id="txtTotalDisc">0</span>
+                Total: ₹<span id="txtSubTotal">0</span> | Discount : ₹<span id="txtTotalDisc">0</span>
                 <div class="val-big">Balance: ₹<span id="txtBal">0</span></div>
             </div>
             <div style="border-left: 1px solid rgba(255,255,255,0.2); padding-left: 20px;">
@@ -161,10 +171,11 @@
         </div>
         
         <div style="display:flex; gap:10px; margin-top:20px;">
-            <button class="btn-save" onclick="saveBill()">💾 SAVE & WHATSAPP</button>
-            <button class="btn-print" onclick="printReceipt()">🖨️ PRINT RECEIPT</button>
-            <button class="btn-tags" onclick="printBarcodeTags()">🏷️ PRINT TAGS</button>
-        </div>
+    <button class="btn-save" onclick="saveBill()">💾 SAVE & WHATSAPP</button>
+    <button class="btn-print" onclick="printReceipt()">🖨️ PRINT RECEIPT</button>
+    <button class="btn-load" style="background:#075E54; flex:1; font-size:18px;" onclick="sendFullWhatsappReceipt()">📱 WHATSAPP RECEIPT</button>
+    <button class="btn-tags" onclick="printBarcodeTags()">🏷️ PRINT TAGS</button>
+</div>
     </div>
 
     <div id="settings" class="tab-content">
@@ -180,36 +191,70 @@
 <div id="printReceiptArea">
     <center>
         <b style="font-size: 24px;">SANSKRITI</b><br>
-        <span style="font-size:16px;">OPPOSITE SUPERTECH EMERALD GATE MARKET<br>SECTOR 93 NOIDA<br>Contact: 9810893973</span><hr style="border-top: 1px dashed black;">
+        <span style="font-size:16px;">
+            OPPOSITE SUPERTECH EMERALD CHOUDHARY MARKET, GEJHA<br>
+            SECTOR 93, NOIDA-201304<br>
+            Contact : 9810893973<br>
+
+            <b style="font-size: 16px; display: inline-block; text-decoration: none !important;">GSTIN: 09AMWPS4823R1ZQ</b><br>
+            
+        <b style="font-size: 18px; text-decoration: underline;">BILL OF SUPPLY</b> </span>
+        <hr style="border-top: 1px dashed black;">
     </center>
-    <div style="font-size:18px; line-height:1.2;">
-        Bill No: <span id="p-billid"></span><br>Date: <span id="p-date"></span><hr style="border-top: 1px dashed black;">
-        Cust: <b id="p-cust"></b><br>Mob: <span id="p-mob"></span><hr style="border-top: 1px dashed black;">
-    </div>
+    <div style="font-size:17px; line-height:1.4;">
+    Bill No :  <b><span id="p-billid"></span></b><br> 
+    Booking Date : <span id="p-date"></span><br>
+    <b>Delivery Date : <span id="p-delivery-date"></span></b><br>
+    <hr style="border-top: 1px dashed black;">
+    
+    <b id="p-cust"></b><br>
+    <span id="p-mob"></span><br>
+    <span id="p-address" style="font-weight: normal;"></span>
+    
+    <hr style="border-top: 1px dashed black;">
+</div>
+    
     <table style="width:100%; font-size:17px; border-collapse:collapse;">
         <thead><tr><th align="left">ITEM</th><th align="center">QTY</th><th align="right">AMT</th></tr></thead>
         <tbody id="p-items"></tbody>
     </table>
+    
+    <div style="font-weight:bold; border-top:1px dashed black; padding-top:5px; font-size: 15px;">
+        Pcs : <span id="p-normal-pcs">0</span><br>
+        Sample : <span id="p-sample-pcs">0</span><br>
+        Total Pcs : <span id="p-total-pcs">0</span>
+    </div>
+    
     <hr style="border-top: 1px dashed black;">
     
     <div style="text-align:right; font-size:18px;">
-        Sub Total: <span id="p-sub"></span><br>
-        Discount: -<span id="p-disc-total"></span><br>
+        Net Worth : <span id="p-sub"></span><br></span><br> Discount : <span id="p-disc-total"></span><br>
+        
+        CGST : 0<br>
+        SGST : 0<br>
+        IGST : 0<br>
+        
         <b style="font-size: 20px;">Grand Total : <span id="p-grand"></span></b>
     </div>
+    
+    <div style="text-align: center; margin-top: 5px;">
+        <b style="font-size: 13px; display: block; width: 100%;">Dealer Registered Against Composition Scheme</b>
+    </div>
+    
     <hr style="border-top: 1px dashed black;">
+    
 
     <div id="p-payment-history-section" style="font-size:15px; margin-bottom: 5px;">
-        <b style="text-decoration: underline;">Payment History:</b>
+        <b style="text-decoration: underline;">Payment History : </b>
         <div id="p-payment-list"></div>
     </div>
     <hr style="border-top: 1px dashed black;">
 
     <div style="text-align:right;">
-        <b style="font-size: 22px;">Balance: <span id="p-bal"></span></b>
+        <b style="font-size: 22px;">Balance : <span id="p-bal"></span></b>
     </div>
 
-    <center><br><b style="font-size:18px;">Thank You For Shopping<br>Visit Again</b></center>
+    <center><br><b style="font-size:18px;">Thank For Your Visit<br></center>
 </div>
 
 <div id="duesModal" class="modal-overlay">
@@ -274,6 +319,7 @@
     function cleanDate(d) { if(!d) return "N/A"; let pts = d.split('-'); return pts.length === 3 ? `${pts[2]}/${pts[1]}/${pts[0]}` : d; }
 
     window.onload = () => {
+        document.getElementById('bookingDate').valueAsDate = new Date();
         document.getElementById('kistDate').valueAsDate = new Date();
         document.getElementById('devDate').valueAsDate = new Date();
         
@@ -318,11 +364,15 @@
         }
     }
 
-    function saveBill() {
+function saveBill() {
         updateManualBillNo(); 
 
+        let bDate = document.getElementById('bookingDate').value;
         let name = document.getElementById('custName').value.trim();
         let mob = document.getElementById('custMob').value.trim();
+        let address = document.getElementById('custAddress').value.trim();
+ 
+
         if(!name || mob.length < 10) return alert("Enter Customer Name and valid Mobile Number");
 
         let items = Array.from(document.querySelectorAll('#itemRows tr')).map(r => ({
@@ -337,58 +387,83 @@
         let grandTotal = subtotal - totalDisc;
         let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
         let bal = grandTotal - paid;
+        
         let totalPcs = items.reduce((s, i) => s + Number(i.qty), 0);
         let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
         let pendingPcs = totalPcs - devPcs;
 
+        // Logic for SAMPLE and NORMAL PCS
+        let samplePcs = items.reduce((s, i) => (i.name && i.name.toUpperCase().includes("(SAMPLE)")) ? s + Number(i.qty) : s, 0);
+        let normalPcs = 
+             totalPcs - 
+             samplePcs;
+
         let msg = `*SANSKRITI*\n`;
         msg += `---------------------------\n`;
-        msg += `*Bill No:* ${billNumber}\n`;
-        msg += `*Customer:* ${name}\n`;
-        msg += `*Sub Total:* Rs ${subtotal}\n`;
-        msg += `*Discount:* Rs ${totalDisc}\n`;
-        msg += `*Grand Total:* Rs ${grandTotal}\n`;
-        msg += `*Paid Amount:* Rs ${paid}\n`;
-        msg += `*Due Balance:* Rs ${bal}\n\n`;
+        msg += `*Bill No :* ${billNumber}\n`;
+        msg += `*Date :* ${cleanDate(bDate)}\n`;
+        msg += `*${name}*\n`; 
+        msg += `${mob}\n`;
+        
+        if(address) {
+            msg += `${address}\n`; 
+        }
 
-        msg += `*Payments:*\n`;
+        msg += `---------------------------\n`;
+        msg += `*Sub Total :* Rs ${subtotal}\n`;
+        msg += `*Discount :* Rs ${totalDisc}\n`;
+        msg += `*Grand Total :* Rs ${grandTotal}\n`;
+        msg += `*Recd Amount :* Rs ${paid}\n`;
+        msg += `*Balance Amount :* Rs ${bal}\n\n`;
+
+        msg += `*Payment History :*\n`;
         if(currentPayments.length > 0) {
             currentPayments.forEach(p => {
-                msg += ` - ${cleanDate(p.date)}: Rs ${p.amount} (${p.mode})\n`;
+                msg += ` - ${cleanDate(p.date)} : Rs ${p.amount} (${p.mode})\n`;
             });
         } else { msg += ` - No payments recorded\n`; }
 
+        // WhatsApp Inventory Status Format
         msg += `\n*Inventory Status:*\n`;
-        msg += ` - Total Pcs: ${totalPcs}\n`;
-        msg += ` - Delivered: ${devPcs}\n`;
-        msg += ` - Remaining: ${pendingPcs}\n\n`;
+msg += `Normal : ${normalPcs}\n`;
+msg += `Sample : ${samplePcs}\n`;
+msg += `Total Pcs : ${totalPcs}\n`;
+msg += `Delivered : ${devPcs}\n`;
+msg += `Remaining : ${pendingPcs}\n\n`;
 
         msg += `*Delivery Record:*\n`;
         if(currentDeliveries.length > 0) {
             currentDeliveries.forEach(d => {
-                // Yahan se maine bracket hata diya hai taaki double )) na aaye
                 msg += ` - ${cleanDate(d.date)}: ${d.qty} Pcs - ${d.item}\n`;
             });
         } else { 
             msg += ` - No deliveries recorded\n`; 
         }
         
-        msg += `*Expected Delivery:* ${cleanDate(document.getElementById('delDate').value)}\n`;
+        msg += `*Expected Delivery :* ${cleanDate(document.getElementById('delDate').value)}\n`;
         msg += `---------------------------\n`;
         msg += `*Thank you!*`;
 
-        const billData = { id: billNumber, name, mob, items, payments: currentPayments, deliveries: currentDeliveries, delDate: document.getElementById('delDate').value };
+        const billData = { 
+            id: billNumber,
+            date : bDate, 
+            name : name, 
+            mob : mob, 
+            address : address,
+            items : items, 
+            payments : currentPayments, 
+            deliveries : currentDeliveries, 
+            delDate : document.getElementById('delDate').value 
+        };
         
-        // WhatsApp tab directly open karenge browser refresh se pehle
         window.open(`https://wa.me/91${mob}?text=${encodeURIComponent(msg)}`, '_blank');
 
-        // ==== CLOUD SAVE LOGIC ====
         db.ref('sanskriti_data/lastBillNo').set(billNumber);
         db.ref('sanskriti_data/bills/bill_' + billNumber).set(billData, (error) => {
             if(error) {
                 alert("Error saving to Cloud: " + error.message);
             } else {
-                location.reload(); // Save hone ke baad page reload karna
+                location.reload(); 
             }
         });
     }
@@ -397,11 +472,11 @@
         let msg = `*SANSKRITI - Payment Reminder*\n`;
         msg += `---------------------------\n`;
         msg += `Dear *${name}*,\n\n`;
-        msg += `This is a reminder regarding your pending balance for Bill No: *${billId}*.\n\n`;
-        msg += `*Pending Amount: Rs ${balance}*\n\n`;
+        msg += `This is a reminder regarding your pending balance for Bill No :  *${billId}*.\n\n`;
+        msg += `*Pending Amount :  Rs ${balance}*\n\n`;
         msg += `Kindly clear the dues at your earliest convenience via Paytm, Google Pay, or Cash at our store.\n\n`;
-        msg += `*Store Address:* Chaudhary Market, Sector-93, Noida\n`;
-        msg += `*Contact:* 9810893973\n`;
+        msg += `*Store Address :* Opposite Supertech Emerald Choudhary Market Gejha,Sector-93,Noida-201304\n`;
+        msg += `*Contact : * 9810893973\n`;
         msg += `---------------------------\n`;
         msg += `*Thank you!*`;
 
@@ -508,36 +583,76 @@
     }
 
     function printReceipt() {
-        document.body.className = "printing-receipt";
-        document.getElementById('p-billid').innerText = billNumber;
-        document.getElementById('p-date').innerText = cleanDate(new Date().toISOString().split('T')[0]);
-        document.getElementById('p-cust').innerText = document.getElementById('custName').value || "WALK-IN";
-        document.getElementById('p-mob').innerText = document.getElementById('custMob').value || "";
+    document.body.className = "printing-receipt";
+    document.getElementById('p-billid').innerText = billNumber;
+    
+    let bDate = document.getElementById('bookingDate').value;
+    document.getElementById('p-date').innerText = cleanDate(bDate);
+    const delDateInput = document.getElementById('delDate').value;
+    document.getElementById('p-delivery-date').innerText = delDateInput ? cleanDate(delDateInput) : "N/A";
+    
+    document.getElementById('p-cust').innerText = document.getElementById('custName').value || "WALK-IN";
+    document.getElementById('p-mob').innerText = document.getElementById('custMob').value || "";
+    document.getElementById('p-address').innerText = document.getElementById('custAddress').value || "N/A";
+    
+    let worthTotal = 0, discTotal = 0;
+    let normalPcs = 0, samplePcs = 0; // Naye counters
+    let itemHtml = "";
+    
+    document.querySelectorAll('#itemRows tr').forEach(r => {
+        let n = r.querySelector('.p-name').value;
+        let q = Number(r.querySelector('.p-qty').value);
+        let w = Number(r.querySelector('.p-worth').value);
+        let d = Number(r.querySelector('.p-disc').value);
         
-        let worthTotal = 0, discTotal = 0;
-        let itemHtml = "";
-        document.querySelectorAll('#itemRows tr').forEach(r => {
-            let n = r.querySelector('.p-name').value;
-            let q = r.querySelector('.p-qty').value;
-            let w = r.querySelector('.p-worth').value;
-            let d = r.querySelector('.p-disc').value;
-            if(n) {
-                itemHtml += `<tr><td>${n}</td><td align="center">${q}</td><td align="right">${w}</td></tr>`;
-                worthTotal += Number(w);
-                discTotal += Number(d);
+        if(n) {
+            itemHtml += `<tr><td>${n}</td><td align="center">${q}</td><td align="right">${w}</td></tr>`;
+            worthTotal += w;
+            discTotal += d;
+            
+            // Logic: Agar item name mein (SAMPLE) likha hai
+            if(n.toUpperCase().includes("(SAMPLE)")) {
+                samplePcs += q;
+            } else {
+                normalPcs += q;
             }
-        });
-        document.getElementById('p-items').innerHTML = itemHtml;
+        }
+    });
 
-        let payListHtml = currentPayments.length > 0 ? currentPayments.map(p => `<div style="display:flex; justify-content:space-between; border-bottom: 0.5px dashed #ccc; padding: 2px 0;"><span>${cleanDate(p.date)} (${p.mode})</span><b>Rs ${p.amount}</b></div>`).join('') : "<div>No payments recorded</div>";
-        document.getElementById('p-payment-list').innerHTML = payListHtml;
-        document.getElementById('p-sub').innerText = worthTotal;
-        document.getElementById('p-disc-total').innerText = discTotal;
-        document.getElementById('p-grand').innerText = worthTotal - discTotal;
-        document.getElementById('p-bal').innerText = document.getElementById('txtBal').innerText;
-        window.print();
-        setTimeout(() => { document.body.className = ""; }, 500);
-    }
+    document.getElementById('p-items').innerHTML = itemHtml;
+    
+    // Naye fields update karna
+    document.getElementById('p-normal-pcs').innerText = normalPcs;
+    document.getElementById('p-sample-pcs').innerText = samplePcs;
+    document.getElementById('p-total-pcs').innerText = normalPcs + samplePcs; 
+
+    let payListHtml = currentPayments.length > 0 ? currentPayments.map(p => `<div style="display:flex; justify-content:space-between; border-bottom: 0.5px dashed #ccc; padding: 2px 0;"><span>${cleanDate(p.date)} (${p.mode})</span><b>Rs ${p.amount}</b></div>`).join('') : "<div>No payments recorded</div>";
+    document.getElementById('p-payment-list').innerHTML = payListHtml;
+    
+    document.getElementById('p-sub').innerText = worthTotal;
+    document.getElementById('p-disc-total').innerText = discTotal;
+    document.getElementById('p-grand').innerText = worthTotal - discTotal;
+    document.getElementById('p-bal').innerText = document.getElementById('txtBal').innerText;
+// --- TERMS AND NOTE SECTION START ---
+    let termsHtml = `
+        <div class="terms-section">
+            <b>TERMS & CONDITIONS :</b>
+            1. In case of cancellation advance amount will be forfeited.<br>
+            2. No change will we made after order is confirmed.<br>
+            3. Alteration of stitched garments will be done within 7 Days.<br>
+            <br>
+            <b>NOTE : No claims will be Entertained after 30 days from the Date of Delivery</b>
+        </div>`;
+    
+    let existingTerms = document.querySelector('.terms-section');
+    if(existingTerms) existingTerms.remove();
+    
+    document.getElementById('p-bal').closest('div').insertAdjacentHTML('afterend', termsHtml);
+    // --- TERMS AND NOTE SECTION END ---
+    
+    window.print();
+    setTimeout(() => { document.body.className = ""; }, 500);
+}
 
     function loadBill() {
         let id = document.getElementById('searchBillId').value;
@@ -546,8 +661,10 @@
         
         billNumber = d.id; 
         document.getElementById('displayBillNo').value = d.id;
+        document.getElementById('bookingDate').value = d.date || "";
         document.getElementById('custName').value = d.name; 
         document.getElementById('custMob').value = d.mob;
+        document.getElementById('custAddress').value = d.address;
         document.getElementById('delDate').value = d.delDate || "";
         document.getElementById('itemRows').innerHTML = d.items.map(i => `<tr><td><input type="text" list="masterList" class="p-name" value="${i.name}"></td><td><input type="number" class="p-qty" value="${i.qty}" oninput="calculate();"></td><td><input type="number" class="p-worth" value="${i.worth}" oninput="calculate();"></td><td><input type="number" class="p-disc" value="${i.disc || 0}" oninput="calculate();"></td><td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td></tr>`).join('');
         currentPayments = d.payments || []; currentDeliveries = d.deliveries || [];
@@ -669,17 +786,15 @@
     }
 
    function exportDataToExcel() {
-    // Header mein 'Received' column add kiya gaya hai
-    let rows = [["Date", "Bill No", "Customer", "Mobile", "Pcs", "Grand Total", "Received", "Balance"]];
+    // Sequence: Date, Bill No, Customer, Mobile, Pcs, Total, Discount, Grand Total, Received, Balance
+    let rows = [["Date", "Bill No", "Customer", "Mobile", "Pcs", "Total (₹)", "Discount (₹)", "Grand Total (₹)", "Received (₹)", "Balance (₹)"]];
     
     Object.keys(localBillsData).filter(k => k.startsWith('bill_')).map(k => localBillsData[k]).sort((a,b) => a.id - b.id).forEach(d => {
-        let sub = d.items.reduce((s, i) => s + Number(i.worth), 0);
-        let disc = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
-        let grandTotal = sub - disc;
+        let worthTotal = d.items.reduce((s, i) => s + Number(i.worth), 0);
+        let discTotal = d.items.reduce((s, i) => s + Number(i.disc || 0), 0);
+        let grandTotal = worthTotal - discTotal;
         
-        // Agar cloud pe 'receivedAmount' hai toh wo uthayega, nahi toh purane tareeke se calculate karega
         let paid = d.receivedAmount !== undefined ? d.receivedAmount : (d.payments || []).reduce((s, p) => s + Number(p.amount), 0);
-        
         let balance = grandTotal - paid;
 
         rows.push([
@@ -688,16 +803,18 @@
             d.name, 
             d.mob, 
             d.items.reduce((s, i) => s + Number(i.qty), 0), 
-            grandTotal, 
-            paid, 
-            balance
+            worthTotal,  // Pehle Total
+            discTotal,   // Phir Discount
+            grandTotal,  // Phir Grand Total
+            paid,        // Phir Received
+            balance      // Phir Balance
         ]);
     });
     
     const ws = XLSX.utils.aoa_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sales");
-    XLSX.writeFile(wb, "Sanskriti_Report.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Sanskriti_Sales_Report");
+    XLSX.writeFile(wb, "Sanskriti_Detailed_Report.xlsx");
 }
 
     function printBarcodeTags() {
@@ -720,6 +837,297 @@
         w.document.write(`<html><head><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script><style>@page{size:100mm 25mm;margin:0;}body{margin:0;font-family:Arial; overflow:hidden;}.sticker-row{display:flex;width:100mm;height:25mm;page-break-after:always;}.label-box{width:50mm;height:25mm;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;box-sizing:border-box;padding:2px;}.name{font-size:16px;font-weight:bold;margin-bottom:2px;white-space:nowrap;}.barcode-wrapper{width:98%; height:10mm; display:flex; justify-content:center; align-items:center;}.barcode-svg{width:100%; height:100%;}.purchase-rate{font-size:13px;font-weight:bold;margin-top:2px;}.size{font-size:14px;font-weight:bold;}</style></head><body>${labelsHTML}<script>window.onload=function(){document.querySelectorAll(".barcode-svg").forEach(el=>{JsBarcode(el,el.getAttribute("data-val"),{format:"CODE128",width:2,height:40,displayValue:false,margin:0});});setTimeout(()=>{window.print();window.close();},500);}<\/script></body></html>`);
         w.document.close();
     }
+function sendFullWhatsappReceipt() {
+    let name = document.getElementById('custName').value.trim() || "WALK-IN";
+    let mob = document.getElementById('custMob').value.trim();
+    let address = document.getElementById('custAddress').value.trim() || "N/A";
+    let billId = document.getElementById('displayBillNo').value;
+    let delDate = document.getElementById('delDate').value;
+    let bDate = document.getElementById('bookingDate').value;
+    
+    if (mob.length < 10) return alert("Please enter a valid Mobile Number first!");
+
+    let msg = `*SANSKRITI*\n`;
+    msg += `_OPPOSITE SUPERTECH EMERALD CHOUDHARY MARKET, SECTOR-93, NOIDA-201304_\n`;
+    msg += `_Contact : 9810893973_\n`;
+    msg += `*GSTIN : 09AMWPS4823R1ZQ*\n`;
+    msg += `*BILL OF SUPPLY*\n`;
+    msg += `---------------------------\n`;
+
+    msg += `Bill no. *${billId}*\n`;
+    msg += `Booking Date : ${cleanDate(bDate)}\n`;
+    msg += `*Delivery Date : ${delDate ? cleanDate(delDate) : "N/A"}*\n`;
+    msg += `---------------------------\n`;
+    msg += `*${name}*\n`;
+    msg += `${mob}\n`;
+    msg += `${address}\n`;
+    msg += `---------------------------\n`;
+
+    msg += `*ITEMS :*\n`;
+    msg += `\`---------------------------\` \n`;
+    
+    let hItem = "ITEMS".padEnd(15, ' ');
+    let hQty = "Qty".padStart(3, ' ');
+    let hAmt = "Amt".padStart(7, ' ');
+    msg += `\`${hItem}|${hQty}|${hAmt}\` \n`;
+    msg += `\`---------------------------\` \n`;
+
+    let worthTotal = 0, discTotal = 0, normalPcs = 0, samplePcs = 0;
+    
+    document.querySelectorAll('#itemRows tr').forEach(r => {
+        let n = r.querySelector('.p-name').value.toUpperCase();
+        let q = Number(r.querySelector('.p-qty').value) || 0;
+        let w = Number(r.querySelector('.p-worth').value) || 0;
+        let d = Number(r.querySelector('.p-disc').value) || 0;
+        
+        if(n) {
+            let namePart = n.padEnd(15, ' ').substring(0, 15);
+            let qtyPart = q.toString().padStart(2, ' ');
+            let amtPart = w.toString().padStart(7, ' ');
+            
+            msg += `\`${namePart}|${qtyPart} |${amtPart}\` \n`;
+            
+            worthTotal += w;
+            discTotal += d;
+            if(n.includes("(SAMPLE)")) { samplePcs += q; } else { normalPcs += q; }
+        }
+    });
+
+    let totalPcs = normalPcs + samplePcs;
+    let grandTotal = worthTotal - discTotal;
+    let paidTotal = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
+    let balanceAmt = grandTotal - paidTotal;
+
+    // Table Total section
+    msg += `\`---------------------------\` \n`;
+    let tLabel = "TOTAL".padEnd(15, ' ');
+    let tQty = totalPcs.toString().padStart(2, ' ');
+    let tAmt = worthTotal.toString().padStart(7, ' ');
+    msg += `\`${tLabel} ${tQty}  ${tAmt}\` \n`;
+    msg += `\`---------------------------\` \n\n`;
+
+    // Summary Section with Balance shifted under Advance
+    msg += `Normal : ${normalPcs}\n`;
+    msg += `Sample : ${samplePcs}\n`;
+    msg += `Total Pcs : ${totalPcs}\n`;
+    msg += `Total : Rs ${worthTotal}\n`; // Total (Discount se pehle)
+    msg += `Discount : Rs ${discTotal}\n`;
+    msg += `*Grand Total : Rs ${grandTotal}*\n`;
+    msg += `Advance : Rs ${paidTotal}\n`;
+    msg += `*Balance : Rs ${balanceAmt}*\n`;
+    msg += `---------------------------\n`;
+
+    // Payment History
+    if(currentPayments.length > 0) {
+        msg += `*Payment History :*\n`;
+        currentPayments.forEach(p => {
+            msg += ` - ${cleanDate(p.date)}: Rs ${p.amount} (${p.mode})\n`;
+        });
+        msg += `---------------------------\n`;
+    }
+
+    msg += `*Dealer Registered Against*\n`;
+    msg += `*Composition Scheme*\n`;   
+    msg += `---------------------------\n`;
+
+    msg += `*TERMS & CONDITIONS :*\n`;
+    msg += `1. In case of cancellation advance amount will be forfeited.\n`;
+    msg += `2. No changes will we made after order is confirmed.\n`;
+    msg += `3. Alterations of stitched garment will be done within 7 days.\n`;
+    msg += `*NOTE :* No claims after 30 days of delivery.\n\n`;
+    msg += `*Thank for your visit!*`;
+
+    window.open(`https://wa.me/91${mob}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function exportGSTReport() {
+    try {
+        let selectedMonth = prompt("Enter Month for GST Report (YYYY-MM):\nExample: 2026-03\n(Leave blank for Full Report)", "");
+        if (selectedMonth === null) return;
+
+        // Headers: Humne 'Date' ko payment date ke hisaab se set kiya hai
+        let rows = [["Date", "Bill No", "Customer Name", "Cash Payment (₹)", "Digital Payment (₹)", "Total (₹)"]];
+        
+        let billList = Object.keys(localBillsData)
+            .filter(k => k.startsWith('bill_'))
+            .map(k => localBillsData[k]);
+
+        if (billList.length === 0) return alert("Database mein koi bill nahi mila!");
+
+        let reportData = [];
+
+        billList.forEach(bill => {
+            if (bill.payments && Array.isArray(bill.payments)) {
+                bill.payments.forEach(p => {
+                    let pDate = p.date || ""; // Payment ki asli date
+                    
+                    // Month filter check
+                    if (selectedMonth && !pDate.startsWith(selectedMonth)) return;
+
+                    let cash = 0, digital = 0;
+                    let amt = Number(p.amount) || 0;
+                    let mode = (p.mode || "").toUpperCase();
+                    
+                    if (mode === "CASH") cash = amt;
+                    else digital = amt;
+
+                    // Har ek payment ko alag row ke liye taiyar karna
+                    reportData.push({
+                        date: pDate,
+                        billId: bill.id,
+                        name: bill.name || "N/A",
+                        cash: cash,
+                        digital: digital,
+                        total: amt
+                    });
+                });
+            }
+        });
+
+        // Date ke hisaab se sort karna taaki 26, 27, 28 line se aayein
+        reportData.sort((a, b) => a.date.localeCompare(b.date) || a.billId - b.billId);
+
+        // Rows mein data push karna
+        reportData.forEach(item => {
+            rows.push([
+                cleanDate(item.date), 
+                item.billId, 
+                item.name, 
+                item.cash, 
+                item.digital, 
+                item.total
+            ]);
+        });
+
+        if (rows.length === 1) return alert("Chune gaye mahine ke liye koi payment entry nahi mili!");
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "GST_Payment_Report");
+        
+        let fileName = selectedMonth ? `Sanskriti_GST_Report_${selectedMonth}.xlsx` : "Sanskriti_GST_Full_Report.xlsx";
+        XLSX.writeFile(wb, fileName);
+
+    } catch (error) {
+        alert("Error: " + error.message);
+    }
+}
+
+// Cancel function with Password Protection
+function promptCancel() {
+    let input = prompt("Enter Admin Password to PERMANENTLY CANCEL this bill:", "");
+    
+    // Agar user ne cancel button dabaya prompt pe
+    if (input === null) return;
+
+    // .toLowerCase() lagane se password 'amit@2024' check hoga chahe aap kaise bhi likho
+    if (input.toLowerCase() === "amit@2024") {
+        let currentBillId = document.getElementById('displayBillNo').value;
+        if(confirm("Kya aap Bill No: " + currentBillId + " ko hamesha ke liye CANCEL karna chahte hain?")) {
+            markBillAsCancelled(currentBillId);
+        }
+    } else {
+        alert("Galt Password! Kripya sahi password dalein.");
+    }
+}
+
+function markBillAsCancelled(billId) {
+    let name = document.getElementById('custName').value.trim() || "Customer";
+    let mob = document.getElementById('custMob').value.trim();
+
+    // 1. WhatsApp Message for Cancellation
+    if (mob.length >= 10) {
+        let msg = `*SANSKRITI*\n`;
+        msg += `---------------------------\n`;
+        msg += `*Bill No :* ${billId}\n`;
+        msg += `*${name}*\n`;
+        msg += `*STATUS: BILL CANCELLED*\n`; 
+        msg += `---------------------------\n`;
+        msg += `*Amount Due :* Rs 0\n`;
+        msg += `*Balance :* Rs 0\n`;
+        msg += `---------------------------\n`;
+        msg += `*Thank you!*`;
+        
+        window.open(`https://wa.me/91${mob}?text=${encodeURIComponent(msg)}`, '_blank');
+    }
+
+    // 2. Database Update (Amounts ko 0 karna aur status badalna)
+    const cancelledData = {
+        id: billId,
+        name: name + " (CANCELLED)",
+        mob: mob,
+        status: "CANCELLED",
+        date: document.getElementById('bookingDate').value,
+        items: [{name: "CANCELLED BILL", qty: 0, worth: 0, disc: 0}],
+        payments: [], // Saari purani payments hata di jayengi
+        deliveries: [],
+        delDate: ""
+    };
+
+    db.ref('sanskriti_data/bills/bill_' + billId).set(cancelledData, (error) => {
+        if(error) {
+            alert("Error updating database: " + error.message);
+        } else {
+            alert("Bill No: " + billId + " ko successfully cancel kar diya gaya hai.");
+            resetBillForm(); // Screen saaf karne ke liye
+        }
+    });
+}
+
+// POORA DATABASE CLEAR KARNE KE LIYE FUNCTION
+function clearAllData() {
+    let confirmPass = prompt("WARNING: Yeh saara data (Bills, Payments, Inventory) hamesha ke liye delete kar dega.\n\nEnter Password to confirm:", "");
+
+    if (confirmPass === "Amit@2024") {
+        let doubleCheck = confirm("Kya aap pakka saara purana record delete karke 2951 se shuru karna chahte hain?");
+        
+        if (doubleCheck) {
+            // 1. Saare Bills aur Payments delete karein
+            db.ref('sanskriti_data/bills').remove();
+            
+            // 2. Bill counter ko reset karein (Taki naya bill 2951 se shuru ho)
+            db.ref('sanskriti_data/lastBillNo').set(2950); 
+            
+            // 3. Local data reset
+            localBillsData = {};
+            
+            alert("Database successfully clear ho gaya hai! Page refresh ho raha hai...");
+            location.reload();
+        }
+    } else if (confirmPass !== null) {
+        alert("Galt Password! Data delete nahi kiya gaya.");
+    }
+}
+
+function hardResetDatabase() {
+    let confirm1 = confirm("KYA AAP SURE HAIN?\n\nSanskriti ka saara purana data (Bills, Payments) delete ho jayega aur naya bill 2951 se shuru hoga.");
+    
+    if (confirm1) {
+        let confirm2 = confirm("LAST WARNING: Ek baar delete hone ke baad data wapas nahi aayega. Continue?");
+        
+        if (confirm2) {
+            // Firebase reference check karke delete karna
+            // Aapke code mein 'db' variable use ho raha hai
+            if (typeof db !== 'undefined') {
+                db.ref('sanskriti_data').remove()
+                .then(() => {
+                    // Bill number ko 2950 par set karna taki agla 2951 aaye
+                    return db.ref('sanskriti_data/lastBillNo').set(2950);
+                })
+                .then(() => {
+                    alert("Database Clear! Software ab naye sire se shuru ho raha hai.");
+                    location.reload();
+                })
+                .catch((error) => {
+                    alert("Error: " + error.message);
+                });
+            } else {
+                alert("Database connection (db) nahi mila. Kripya page refresh karke try karein.");
+            }
+        }
+    }
+}
+
 </script>
 
 <datalist id="masterList"></datalist>
