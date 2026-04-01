@@ -337,7 +337,11 @@
                 billNumber = parseInt(data.lastBillNo) + 1;
             }
 
-            document.getElementById('displayBillNo').value = billNumber;
+            let fy = getFinancialYear();
+document.getElementById('displayBillNo').value = billNumber;let billDisplayDiv = document.querySelector('.bill-no-display');
+if (!document.getElementById('fy-span')) {
+    billDisplayDiv.insertAdjacentHTML('beforeend', `<span id="fy-span" style="margin-left:5px; color:var(--dark);">/ ${fy}</span>`);
+} 
             renderMaster(true); // render on UI but skip firebase overwrite
         });
 
@@ -397,10 +401,10 @@ function saveBill() {
         let normalPcs = 
              totalPcs - 
              samplePcs;
-
+let fy = getFinancialYear();
         let msg = `*SANSKRITI*\n`;
         msg += `---------------------------\n`;
-        msg += `*Bill No :* ${billNumber}\n`;
+        msg += `*Bill No :* ${billNumber} / ${fy}\n`; // Is line ko update karein
         msg += `*Date :* ${cleanDate(bDate)}\n`;
         msg += `*${name}*\n`; 
         msg += `${mob}\n`;
@@ -584,7 +588,8 @@ msg += `Remaining : ${pendingPcs}\n\n`;
 
     function printReceipt() {
     document.body.className = "printing-receipt";
-    document.getElementById('p-billid').innerText = billNumber;
+    let fy = getFinancialYear();
+document.getElementById('p-billid').innerText = billNumber + " / " + fy;
     
     let bDate = document.getElementById('bookingDate').value;
     document.getElementById('p-date').innerText = cleanDate(bDate);
@@ -817,26 +822,134 @@ msg += `Remaining : ${pendingPcs}\n\n`;
     XLSX.writeFile(wb, "Sanskriti_Detailed_Report.xlsx");
 }
 
-    function printBarcodeTags() {
-        let rows = document.querySelectorAll('#itemRows tr');
-        let totalPcs = document.getElementById('stTotalPcs').innerText;
-        let labelsHTML = "";
-        let count = 1;
-        rows.forEach((row) => {
-            let name = row.querySelector('.p-name').value.toUpperCase();
-            let qty = parseInt(row.querySelector('.p-qty').value);
-            if(!name) return;
-            for(let i=1; i<=qty; i++) {
-                let barcodeVal = "SNK" + billNumber + count;
-                labelsHTML += `<div class="sticker-row"><div class="label-box"><div class="name">${name}</div><div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div><div class="purchase-rate">BILL NO.: ${billNumber}</div><div class="size">PCS: ${count}/${totalPcs}</div></div><div class="label-box"><div class="name">${name}</div><div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div><div class="purchase-rate">BILL NO.: ${billNumber}</div><div class="size">PCS: ${count}/${totalPcs}</div></div></div>`;
-                count++;
-            }
-        });
-        if(!labelsHTML) return alert("Please add items first!");
-        let w = window.open("", "", "width=900,height=600");
-        w.document.write(`<html><head><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script><style>@page{size:100mm 25mm;margin:0;}body{margin:0;font-family:Arial; overflow:hidden;}.sticker-row{display:flex;width:100mm;height:25mm;page-break-after:always;}.label-box{width:50mm;height:25mm;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;box-sizing:border-box;padding:2px;}.name{font-size:16px;font-weight:bold;margin-bottom:2px;white-space:nowrap;}.barcode-wrapper{width:98%; height:10mm; display:flex; justify-content:center; align-items:center;}.barcode-svg{width:100%; height:100%;}.purchase-rate{font-size:13px;font-weight:bold;margin-top:2px;}.size{font-size:14px;font-weight:bold;}</style></head><body>${labelsHTML}<script>window.onload=function(){document.querySelectorAll(".barcode-svg").forEach(el=>{JsBarcode(el,el.getAttribute("data-val"),{format:"CODE128",width:2,height:40,displayValue:false,margin:0});});setTimeout(()=>{window.print();window.close();},500);}<\/script></body></html>`);
-        w.document.close();
-    }
+   function printBarcodeTags() {
+    let rows = document.querySelectorAll('#itemRows tr');
+    let totalPcs = parseInt(document.getElementById('stTotalPcs').innerText);
+    let currentBillNo = document.getElementById('displayBillNo').value; // Sahi Bill No uthane ke liye
+    let labelsHTML = "";
+    let count = 1;
+
+    rows.forEach((row) => {
+        let nameInput = row.querySelector('.p-name');
+        if(!nameInput) return;
+        let name = nameInput.value.toUpperCase();
+        let qty = parseInt(row.querySelector('.p-qty').value);
+        
+        if(!name || isNaN(qty)) return;
+        
+        for(let i=1; i<=qty; i++) {
+            // Barcode value ke liye Bill No + Count
+            let barcodeVal = currentBillNo + "" + count; 
+            // PCS display logic
+            let pcsDisplay = totalPcs === 1 ? "1 PC" : `${count}/${totalPcs} PCS`;
+
+            labelsHTML += `
+                <div class="sticker-row">
+                    <div class="label-box">
+                        <div class="name-header">${name}</div>
+                        <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
+                        <div class="details-footer">
+                            <div class="f-bill">BILL: ${currentBillNo}</div>
+                            <div class="f-pcs">${pcsDisplay}</div>
+                        </div>
+                    </div>
+                    <div class="label-box">
+                        <div class="name-header">${name}</div>
+                        <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
+                        <div class="details-footer">
+                            <div class="f-bill">BILL: ${currentBillNo}</div>
+                            <div class="f-pcs">${pcsDisplay}</div>
+                        </div>
+                    </div>
+                </div>`;
+            count++;
+        }
+    });
+
+    if(!labelsHTML) return alert("Please add items first!");
+
+    let w = window.open("", "", "width=900,height=600");
+    w.document.write(`
+        <html>
+        <head>
+            <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+            <style>
+                @page { size: 100mm 25mm; margin: 0; }
+                body { margin: 0; padding: 0; font-family: 'Arial Black', sans-serif; background: white; }
+                .sticker-row { 
+                    display: flex; 
+                    width: 100mm; 
+                    height: 25mm; 
+                    page-break-after: always; 
+                    align-items: center;
+                }
+                .label-box { 
+                    width: 50mm; 
+                    height: 25mm; 
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center; 
+                    justify-content: space-between; 
+                    box-sizing: border-box; 
+                    padding: 1mm 1.5mm;
+                    overflow: hidden;
+                }
+                .name-header { 
+                    font-size: 14px; 
+                    font-weight: 900; 
+                    text-align: center;
+                    width: 100%;
+                    white-space: nowrap;
+                }
+                .barcode-wrapper { 
+                    width: 95%; 
+                    height: 10mm; 
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center;
+                }
+                .barcode-svg { 
+                    width: 100%;
+                    height: 100%; 
+                }
+                .details-footer { 
+                    font-size: 14px; 
+                    width: 100%;
+                    border-top: 2.5px solid black; 
+                    padding-top: 0.5mm;
+                    display: flex;
+                    justify-content: space-between; /* Isse Bill aur PCS alag-alag kone mein rahenge */
+                    font-weight: 900;
+                    line-height: 1.2;
+                }
+                .f-bill { text-align: left; flex-shrink: 0; }
+                .f-pcs { text-align: right; flex-shrink: 0; }
+            </style>
+        </head>
+        <body>
+            ${labelsHTML}
+            <script>
+                window.onload = function() {
+                    document.querySelectorAll(".barcode-svg").forEach(el => {
+                        JsBarcode(el, el.getAttribute("data-val"), {
+                            format: "CODE128",
+                            width: 2, 
+                            height: 40,
+                            displayValue: false,
+                            margin: 0
+                        });
+                    });
+                    setTimeout(() => { 
+                        window.print(); 
+                        window.close(); 
+                    }, 600);
+                };
+            <\/script>
+        </body>
+        </html>`);
+    w.document.close();
+}
+
 function sendFullWhatsappReceipt() {
     let name = document.getElementById('custName').value.trim() || "WALK-IN";
     let mob = document.getElementById('custMob').value.trim();
@@ -846,7 +959,7 @@ function sendFullWhatsappReceipt() {
     let bDate = document.getElementById('bookingDate').value;
     
     if (mob.length < 10) return alert("Please enter a valid Mobile Number first!");
-
+    let fy = getFinancialYear();
     let msg = `*SANSKRITI*\n`;
     msg += `_OPPOSITE SUPERTECH EMERALD CHOUDHARY MARKET, SECTOR-93, NOIDA-201304_\n`;
     msg += `_Contact : 9810893973_\n`;
@@ -854,7 +967,7 @@ function sendFullWhatsappReceipt() {
     msg += `*BILL OF SUPPLY*\n`;
     msg += `---------------------------\n`;
 
-    msg += `Bill no. *${billId}*\n`;
+    msg += `*Bill No :* ${billNumber} / ${fy}\n`; // Is line ko update karein
     msg += `Booking Date : ${cleanDate(bDate)}\n`;
     msg += `*Delivery Date : ${delDate ? cleanDate(delDate) : "N/A"}*\n`;
     msg += `---------------------------\n`;
@@ -1127,6 +1240,22 @@ function hardResetDatabase() {
         }
     }
 }
+
+function getFinancialYear() {
+    let today = new Date();
+    let month = today.getMonth(); // 0-11 (Jan is 0, April is 3)
+    let year = today.getFullYear();
+    let shortYear = year.toString().substring(2);
+    let nextShortYear = (year + 1).toString().substring(2);
+    let prevShortYear = (year - 1).toString().substring(2);
+
+    // Agar April (3) ya usse baad ka mahina hai
+    if (month >= 3) {
+        return `${shortYear}-${nextShortYear}`;
+    } else {
+        return `${prevShortYear}-${shortYear}`;
+    }
+}window.onload
 
 </script>
 

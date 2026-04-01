@@ -97,6 +97,13 @@
     <div id="dashboard" class="section">
         <h2>Dashboard Overview (Online)</h2>
         <div class="dashboard-grid">
+<hr>
+<div style="background:#fff3e0; padding:15px; border-radius:8px; margin-top:10px;">
+    <h3>GST & Financial Reports</h3>
+    <input type="month" id="reportMonth" style="width: 160px;">
+    <button onclick="exportGSTReport('monthly')" style="background:#673AB7; color:white;">Download Monthly GST</button>
+    <button onclick="exportGSTReport('yearly')" style="background:#3F51B5; color:white;">Download Full FY Report</button>
+</div>
             <div class="stat-card"><h3>Total Stock Items</h3><p id="totalStock">0</p></div>
             <div class="stat-card green-card"><h3>Lifetime Sale</h3><p>₹ <span id="lifetimeSale">0</span></p></div>
             <div class="stat-card blue-card"><h3>Today's Sale</h3><p>₹ <span id="todaySale">0</span></p></div>
@@ -111,6 +118,8 @@
         <br>
         <button onclick="exportStockSummary()" style="background:#4CAF50; color:white; border:none;">Stock Summary Excel</button>
         <button onclick="exportSalesDetail()" style="background:#2196F3; color:white; border:none;">Sales Detail Excel</button>
+<br><br>
+<button onclick="clearAllData()" style="background:#d32f2f; color:white; border:none; padding:10px 20px; font-weight:bold;">⚠️ CLEAR ALL DATA (RESET)</button>
     </div>
 
     <div id="stock" class="section">
@@ -224,7 +233,18 @@ var db = firebase.database();
 let stock = [];
 let salesHistory = [];
 let bill = [];
-let invoiceCounter = 1001;
+
+/* --- Updated Invoice & FY Logic --- */
+let invoiceCounter = 1; // INV001 se start karne ke liye
+
+function getFinancialYear() {
+    let today = new Date();
+    let month = today.getMonth() + 1; // April check ke liye
+    let year = today.getFullYear();
+    // Agar April (4) ya usse upar hai toh current year - next year, nahi toh pichla saal
+    let fy = (month >= 4) ? `${year % 100}-${(year + 1) % 100}` : `${(year - 1) % 100}-${year % 100}`;
+    return fy;
+}
 
 /* --- LOGIN PROTECTION --- */
 function checkPassword() {
@@ -233,9 +253,21 @@ function checkPassword() {
         document.getElementById("loginOverlay").style.display = "none";
         document.getElementById("mainAppWrapper").style.display = "block";
         loadOnlineData();
-    } else { alert("Incorrect Password!"); }
+    } else { 
+        alert("Incorrect Password!"); 
+    }
 }
 
+/* --- ACTION PROTECTION (Edit/Delete Password) --- */
+function verifyActionPassword() {
+    let ask = prompt("Enter Admin Password to Modify Stock:");
+    if (ask === "Amit@2024") {
+        return true;
+    } else {
+        alert("Wrong Password! Access Denied.");
+        return false;
+    }
+}
 /* --- DATA SYNC --- */
 function loadOnlineData() {
     // Sync Stock
@@ -347,6 +379,9 @@ function renderStock() {
 }
 
 function editRow(index) {
+    // Password check add kiya gaya hai
+    if (!verifyActionPassword()) return; 
+
     let item = stock[index];
     document.getElementById(`name-${index}`).innerHTML = `<input type="text" id="edit-name-${index}" class="edit-input" style="width:120px" value="${item.name}">`;
     document.getElementById(`size-${index}`).innerHTML = `<input type="text" id="edit-size-${index}" class="edit-input" style="width:50px" value="${item.size}">`;
@@ -366,7 +401,12 @@ function saveRow(index) {
 }
 
 function deleteStock(id) {
-    if (confirm("Delete product?")) { db.ref("sanskriti_stock/" + id).remove(); }
+   // Password check add kiya gaya hai
+    if (!verifyActionPassword()) return;
+
+    if (confirm("Delete product?")) { 
+        db.ref("sanskriti_stock/" + id).remove(); 
+    }
 }
 
 /* --- BILLING LOGIC --- */
@@ -472,17 +512,19 @@ function completeSale() {
         if((cashAmt + onlineAmt) !== total) { alert("Split match nahi hua!"); return; }
     }
 
-    let inv = "INV" + invoiceCounter;
+   let fy = getFinancialYear();
+    // INV + 001 format + Financial Year
+    let inv = "INV" + String(invoiceCounter).padStart(3, '0') + "/" + fy;
     let sale = { 
-        invoice: inv, 
-        date: new Date().toISOString(), 
-        items: [...bill], 
+        invoice : inv, 
+        date : new Date().toISOString(), 
+        items : [...bill], 
         total, 
-        discount: Number(document.getElementById("discount").value), 
-        paymentMode: mode, 
-        splitDetails: mode === "Split" ? {cash: cashAmt, online: onlineAmt} : null,
-        customer: document.getElementById("custName").value || 'Cash', 
-        mobile: document.getElementById("custMobile").value || '-' 
+        discount : Number(document.getElementById("discount").value), 
+        paymentMode : mode, 
+        splitDetails : mode === "Split" ? {cash: cashAmt, online: onlineAmt} : null,
+        customer : document.getElementById("custName").value || 'Cash', 
+        mobile : document.getElementById("custMobile").value || '-' 
     };
 
     // Save to Firebase
@@ -541,6 +583,9 @@ function renderHistory() {
 }
 
 function refundSingleItem(saleIdx, itemIdx) {
+    // Password check add kiya gaya hai
+    if (!verifyActionPassword()) return;
+
     if (confirm("Refund this item?")) {
         let sale = salesHistory[saleIdx];
         let item = sale.items[itemIdx];
@@ -565,6 +610,9 @@ function refundSingleItem(saleIdx, itemIdx) {
 }
 
 function returnSale(index) {
+    // Password check add kiya gaya hai
+    if (!verifyActionPassword()) return;
+
     if (confirm("Return all items?")) {
         let sale = salesHistory[index];
         sale.items.forEach(ri => { 
@@ -581,7 +629,12 @@ function returnSale(index) {
 }
 
 function deleteSale(id) {
-    if (confirm("Delete record?")) { db.ref("sanskriti_sales/" + id).remove(); }
+    // Password check add kiya gaya hai
+    if (!verifyActionPassword()) return;
+
+    if (confirm("Delete record?")) { 
+        db.ref("sanskriti_sales/" + id).remove(); 
+    }
 }
 
 /* --- PRINT & EXPORT --- */
@@ -590,6 +643,12 @@ function formatDate(isoStr) {
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
 
+/* --- UPDATED BILL WITH TAX DETAILS --- */
+/* --- UPDATED BILL WITH RIGHT-ALIGNED TAXES --- */
+/* --- UPDATED BILL WITH RIGHT-ALIGNED SUMMARY --- */
+
+/* --- FINAL UPDATED BILL (RIGHT ALIGNED SUMMARY) --- */
+/* --- FINAL ALIGNED BILL (AS PER 2ND PHOTO) --- */
 function printReceipt(sale) {
     let w = window.open("", "", "width=350,height=600");
     let modeText = sale.paymentMode === "Split" ? `Cash:₹${sale.splitDetails.cash}|Online:₹${sale.splitDetails.online}` : sale.paymentMode;
@@ -601,7 +660,7 @@ function printReceipt(sale) {
         body{font-family:monospace;font-size:18px;line-height:1.2;padding:0;margin:0;}
         .bill{width:70mm;margin:0 auto;padding-right:2mm;}
         .title{text-align:center;font-size:24px;font-weight:bold;}
-        .center{text-align:center;font-size:16px;}
+        .center-info{text-align:center;font-size:16px;text-transform: uppercase; margin-top: 5px;}
         hr{border-top:1px dashed black;margin:5px 0;}
         table{width:100%;border-collapse:collapse;margin:10px 0;}
         td,th{padding:5px 1px;font-size:17px;}
@@ -609,26 +668,84 @@ function printReceipt(sale) {
         .center-col{text-align:center;width:15%;}
         .right-col{text-align:right;width:20%;}
         .amt-col{text-align:right;width:20%;padding-right:1mm;}
+        
+        /* Fixed Alignment for Summary */
+        .summary-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end; /* Poora block right side */
+            margin-top: 5px;
+        }
+        .summary-line {
+            width: 200px; /* Label aur value ki width fix kar di */
+            display: flex;
+            justify-content: flex-end; /* Sab kuch right align */
+            font-size: 17px;
+            margin: 1px 0;
+        }
+        .label {
+            text-align: right;
+            padding-right: 15px; /* Label aur value ke beech ka gap */
+            flex: 1;
+        }
+        .val {
+            text-align: right;
+            min-width: 70px; /* Numbers ke liye fixed space */
+            font-weight: bold;
+        }
+        
         .footer{text-align:center;margin-top:15px;font-weight:bold;font-size:18px;}
-        .bold-grand-total { font-weight: bold; font-size: 20px; }
+        .bold-grand-total { 
+            font-weight: bold; 
+            font-size: 20px; 
+            display: flex; 
+            justify-content: flex-end; 
+            margin-top: 5px;
+        }
+        .bill-header-text { text-align:center; font-weight:bold; text-decoration:underline; font-size: 18px; margin: 10px 0; display: block;}
     </style>
     <div class="bill">
         <div class="title">SANSKRITI</div>
-        <div class="center">OPPOSITE SUPERTECH EMERALD GATE MARKET<br>SECTOR 93 NOIDA<br>Contact: 9810893973</div>
+        <div class="center-info">
+            OPPOSITE SUPERTECH EMERALD<br>
+            CHOUDHARY MARKET, GEJHA<br>
+            SECTOR 93, NOIDA-201304<br>
+            Contact : 9810893973<br>
+            <strong>GSTIN: 09AMWPS4823R1ZQ</strong>
+        </div>
+        
+        <div class="bill-header-text">BILL OF SUPPLY</div>
+        
         <hr>
         Bill: ${sale.invoice}<br>Date: ${formatDate(sale.date)}<hr>
         Cust: ${sale.customer}<br>Mob: ${sale.mobile}<hr>
+        
         <table>
             <tr><th class="left">Item</th><th class="center-col">Qty</th><th class="right-col">Rate</th><th class="amt-col">Amt</th></tr>
             ${sale.items.map(i => `<tr><td class="left">${i.name}</td><td class="center-col">${i.qty}</td><td class="right-col">${Math.abs(i.price)}</td><td class="amt-col">${i.total}</td></tr>`).join("")}
         </table>
+        
         <hr>
-        Total Amt: ${totalAmtBeforeDiscount}<br>
-        Discount: ${sale.discount || 0}<br>
-        <span class="bold-grand-total">Grand Total : ${sale.total}</span>
+        <div class="summary-wrapper">
+            <div class="summary-line"><span class="label">Total Amt:</span><span class="val">${totalAmtBeforeDiscount}</span></div>
+            <div class="summary-line"><span class="label">Discount:</span><span class="val">${sale.discount || 0}</span></div>
+            <div class="summary-line"><span class="label">CGST:</span><span class="val">0</span></div>
+            <div class="summary-line"><span class="label">SGST:</span><span class="val">0</span></div>
+            <div class="summary-line"><span class="label">IGST:</span><span class="val">0</span></div>
+        </div>
+        
+        <hr>
+        <div class="bold-grand-total">
+            <span style="padding-right:15px;">Grand Total :</span>
+            <span class="val">₹ ${sale.total}</span>
+        </div>
+        <hr>
+<div style="text-align:center; font-size:15px; font-weight:bold; margin: 5px 0;">
+            Dealer Registered Against Composition Scheme
+        </div>
         <hr>
         Mode: ${modeText}
-        <div class="footer">Thank For Your Visit<br> </div>
+        <div class="footer">Thank For Your Visit</div>
     </div>`;
     w.document.write(html); w.document.close();
     setTimeout(() => { w.print(); w.close(); }, 500);
@@ -639,12 +756,91 @@ function printBarcode(barcode, name, price, size, sno, totalQty) {
     let labelsHTML = "";
     for (let i = 1; i <= totalQty; i++) {
         let serialLabel = `S.${sno} - ${i}/${totalQty}`;
-        labelsHTML += `<div class="sticker-row"><div class="label-box"><div class="sno-info">${serialLabel}</div><div class="price">₹${price}</div><div class="name">${name}</div><div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcode}"></svg></div><div class="purchase-rate">${barcode}</div><div class="size">SIZE - ${size}</div></div><div class="label-box"><div class="sno-info">${serialLabel}</div><div class="price">₹${price}</div><div class="name">${name}</div><div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcode}"></svg></div><div class="purchase-rate">${barcode}</div><div class="size">SIZE - ${size}</div></div></div>`;
+        labelsHTML += `
+        <div class="sticker-row">
+            <div class="label-box">
+                <div class="sno-info">${serialLabel}</div>
+                <div class="price">₹${price}</div>
+                <div class="name">${name}</div>
+                <div class="barcode-wrapper">
+                    <svg class="barcode-svg" data-val="${barcode}"></svg>
+                </div>
+                <div class="purchase-rate">${barcode}</div>
+                <div class="size">SIZE - ${size}</div>
+            </div>
+            <div class="label-box">
+                <div class="sno-info">${serialLabel}</div>
+                <div class="price">₹${price}</div>
+                <div class="name">${name}</div>
+                <div class="barcode-wrapper">
+                    <svg class="barcode-svg" data-val="${barcode}"></svg>
+                </div>
+                <div class="purchase-rate">${barcode}</div>
+                <div class="size">SIZE - ${size}</div>
+            </div>
+        </div>`;
     }
-    let html = `<html><head><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
-    <style>@page{size:100mm 25mm;margin:0;}body{margin:0;font-family:Arial; overflow:hidden;}.sticker-row{display:flex;width:100mm;height:25mm;page-break-after:always;}.label-box{width:50mm;height:25mm;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;position:relative;box-sizing:border-box;padding:1px;}.sno-info{position:absolute;top:1px;right:3px;font-size:13px;font-weight:bold;background:white;padding:0 2px;}.price{font-size:20px;font-weight:bold;margin:0;}.name{font-size:13px;font-weight:bold;margin:-2px 0 1px 0;white-space:nowrap;}.barcode-wrapper{width:98%; height:9mm; display:flex; justify-content:center; align-items:center;}.barcode-svg{width:100%; height:100%;}.purchase-rate{font-size:12px;font-weight:bold;letter-spacing:0.5px;margin-top:-1px;}.size{font-size:13px;font-weight:bold;margin-top:-1px;}</style>
-    </head><body>${labelsHTML}<script>window.onload=function(){document.querySelectorAll(".barcode-svg").forEach(el=>{JsBarcode(el,el.getAttribute("data-val"),{format:"CODE128",width:2.2,height:45,displayValue:false,margin:0});});setTimeout(()=>{window.print();window.close();},500);}<\/script></body></html>`;
-    w.document.write(html); w.document.close();
+
+    let html = `<html><head>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+    <style>
+        @page { size: 100mm 25mm; margin: 0; }
+        body { margin: 0; font-family: Arial; background: white; }
+        .sticker-row { 
+            display: flex; 
+            width: 100mm; 
+            height: 25mm; 
+            page-break-after: always; 
+            align-items: center;
+        }
+        .label-box { 
+            width: 50mm; 
+            height: 25mm; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            position: relative; 
+            box-sizing: border-box; 
+            padding: 2px;
+            overflow: hidden;
+        }
+        .sno-info { position: absolute; top: 1px; right: 5px; font-size: 13px; font-weight: bold; }
+        .price { font-size: 19px; font-weight: bold; margin: 0; }
+        .name { font-size: 15px; font-weight: bold; margin: 1px 0; text-transform: uppercase; }
+        .barcode-wrapper { 
+            width: 90%; 
+            height: 07mm; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            margin: 1px 0;
+        }
+        .barcode-svg { width: 100%; height: 100%; }
+        .purchase-rate { font-size: 12.5px; font-weight: bold; letter-spacing: 0.5px; }
+        .size { font-size: 13px; font-weight: bold; }
+    </style>
+    </head><body>
+    ${labelsHTML}
+    <script>
+        window.onload = function() {
+            document.querySelectorAll(".barcode-svg").forEach(el => {
+                JsBarcode(el, el.getAttribute("data-val"), {
+                    format: "CODE128",
+                    width: 1.5, // Bar ki width thodi kam ki hai taaki scan area clear rahe
+                    height: 40, 
+                    displayValue: false,
+                    margin: 0,
+                    background: "transparent"
+                });
+            });
+            setTimeout(() => { window.print(); window.close(); }, 500);
+        };
+    <\/script>
+    </body></html>`;
+    
+    w.document.write(html);
+    w.document.close();
 }
 
 function exportStockSummary() {
@@ -670,6 +866,67 @@ function exportSalesDetail() {
     let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     let a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Sales_Detail.csv"; a.click();
 }
+function exportGSTReport(type) {
+    let selectedMonth = document.getElementById("reportMonth").value; 
+    let filteredSales = salesHistory;
+
+    // Monthly filter logic
+    if (type === 'monthly') {
+        if(!selectedMonth) { alert("Please select a month first!"); return; }
+        filteredSales = salesHistory.filter(s => s.date.startsWith(selectedMonth));
+    }
+
+    let rows = [["Date", "Invoice No", "Customer Name", "GSTIN/Type", "Taxable Value", "CGST", "SGST", "IGST", "Total Amount", "Mode"]];
+    
+    filteredSales.forEach(sale => {
+        rows.push([
+            formatDate(sale.date),
+            sale.invoice,
+            sale.customer || 'Cash',
+            "Composition Dealer", 
+            sale.total, // Composition mein tax alag se nahi lagta
+            0,
+            0,
+            0,
+            sale.total,
+            sale.paymentMode
+        ]);
+    });
+
+    let csv = rows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+    let filename = type === 'monthly' ? `Monthly_GST_${selectedMonth}.csv` : `FY_Report_${getFinancialYear()}.csv`;
+    
+    let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    let a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+}
+
+function clearAllData() {
+    let ask = prompt("WARNING: This will delete ALL Sales and Stock! Enter Admin Password to proceed:");
+    
+    if (ask === "Amit@2024") {
+        let confirmFinal = confirm("Are you ABSOLUTELY sure? This cannot be undone.");
+        
+        if (confirmFinal) {
+            // 1. Clear Sales History
+            db.ref("sanskriti_sales").remove();
+            
+            // 2. Clear Stock
+            db.ref("sanskriti_stock").remove();
+            
+            // 3. Reset Invoice Counter to 1
+            db.ref("sanskriti_settings/invoiceCounter").set(1);
+            
+            alert("All Data Cleared! System Reset Successful.");
+            location.reload(); // Page refresh takki dashboard zero ho jaye
+        }
+    } else {
+        alert("Wrong Password! Data not cleared.");
+    }
+}
+
 </script>
 </body>
 </html>
