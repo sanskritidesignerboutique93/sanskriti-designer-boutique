@@ -108,12 +108,13 @@
             <div class="stat-card green-card"><h3>Lifetime Sale</h3><p>₹ <span id="lifetimeSale">0</span></p></div>
             <div class="stat-card blue-card"><h3>Today's Sale</h3><p>₹ <span id="todaySale">0</span></p></div>
             <div class="stat-card orange-card">
-                <h3>Today's Payment</h3>
-                <p style="font-size: 15px; margin-top: 10px;">
-                    Cash: ₹<span id="cashToday">0</span><br>
-                    Online: ₹<span id="onlineToday">0</span>
-                </p>
-            </div>
+    <h3>Category Wise Sale (Today)</h3>
+    <div style="font-size: 15px; margin-top: 10px; font-weight: bold; color: #333;">
+        Ready-made: ₹<span id="readySaleToday">0</span><br>
+        Fabrics: ₹<span id="fabricSaleToday">0</span><br>
+        Accessories: ₹<span id="accessSaleToday">0</span>
+    </div>
+</div>
         </div>
         <br>
         <button onclick="exportStockSummary()" style="background:#4CAF50; color:white; border:none;">Stock Summary Excel</button>
@@ -329,23 +330,47 @@ function updateDashboard() {
     document.getElementById("totalStock").innerText = totalStockQty;
     
     let lifetime = 0, todayTotal = 0, cash = 0, online = 0;
+    let rSale = 0, fSale = 0, aSale = 0;
+
     salesHistory.forEach(s => {
         lifetime += Number(s.total);
         let sDate = s.date.split('T')[0];
+        
         if(sDate === today) {
             todayTotal += Number(s.total);
+            
+            // Payment Mode calculation
             if(s.paymentMode === "Cash") cash += Number(s.total);
             else if(s.paymentMode === "Split") { 
-                cash += Number(s.splitDetails.cash); 
-                online += Number(s.splitDetails.online); 
+                cash += Number(s.splitDetails?.cash || 0); 
+                online += Number(s.splitDetails?.online || 0); 
             }
             else { online += Number(s.total); }
+
+            // FIXED CATEGORY CALCULATION:
+            s.items.forEach(item => {
+                let itemTotal = Number(item.total);
+                let itemName = item.name || "";
+
+                // Check for the tags you are adding in addBill()
+                if(itemName.includes("Ready-made")) {
+                    rSale += itemTotal;
+                } else if(itemName.includes("Fabrics")) {
+                    fSale += itemTotal;
+                } else if(itemName.includes("Accessories")) {
+                    aSale += itemTotal;
+                } 
+            });
         }
     });
-    document.getElementById("lifetimeSale").innerText = lifetime;
-    document.getElementById("todaySale").innerText = todayTotal;
-    document.getElementById("cashToday").innerText = cash;
-    document.getElementById("onlineToday").innerText = online;
+
+    document.getElementById("lifetimeSale").innerText = Math.round(lifetime);
+    document.getElementById("todaySale").innerText = Math.round(todayTotal);
+    
+    // UI Update for Categories
+    document.getElementById("readySaleToday").innerText = Math.round(rSale);
+    document.getElementById("fabricSaleToday").innerText = Math.round(fSale);
+    document.getElementById("accessSaleToday").innerText = Math.round(aSale);
 }
 
 /* --- STOCK LOGIC --- */
@@ -901,54 +926,34 @@ function exportStockSummary() {
 }
 
 function exportSalesDetail() {
-    let rows = [["Date", "Invoice", "Customer", "Mobile", "Product", "Barcode", "Price", "Qty", "Total (Before Disc)", "Discount", "Line Total (Net)"]];
+    let rows = [["Date", "Invoice", "Customer", "Category", "Product", "Barcode", "Price", "Qty", "Total (Net)"]];
+    
     salesHistory.forEach(sale => {
-        let totalBillDiscount = Number(sale.discount) || 0;
-        sale.items.forEach((item, index) => {
-            let itemBeforeDisc = item.price * item.qty;
-            let itemDiscount = (index === 0) ? totalBillDiscount : 0; 
-            let netLineTotal = itemBeforeDisc - itemDiscount;
-            rows.push([formatDate(sale.date), sale.invoice, sale.customer || 'Cash', sale.mobile || '-', item.name, item.barcode, item.price, item.qty, itemBeforeDisc, itemDiscount, netLineTotal]);
+        sale.items.forEach((item) => {
+            let category = "Other";
+            if(item.name.includes("(Ready-made)")) category = "Ready-made";
+            else if(item.name.includes("(Fabrics)")) category = "Fabrics";
+            else if(item.name.includes("(Accessories)")) category = "Accessories";
+
+            rows.push([
+                formatDate(sale.date), 
+                sale.invoice, 
+                sale.customer || 'Cash', 
+                category,
+                item.name, 
+                item.barcode, 
+                item.price, 
+                item.qty, 
+                item.total
+            ]);
         });
     });
-    let csv = rows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
-    let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    let a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "Sales_Detail.csv"; a.click();
-}
-function exportGSTReport(type) {
-    let selectedMonth = document.getElementById("reportMonth").value; 
-    let filteredSales = salesHistory;
-
-    // Monthly filter logic
-    if (type === 'monthly') {
-        if(!selectedMonth) { alert("Please select a month first!"); return; }
-        filteredSales = salesHistory.filter(s => s.date.startsWith(selectedMonth));
-    }
-
-    let rows = [["Date", "Invoice No", "Customer Name", "GSTIN/Type", "Taxable Value", "CGST", "SGST", "IGST", "Total Amount", "Mode"]];
     
-    filteredSales.forEach(sale => {
-        rows.push([
-            formatDate(sale.date),
-            sale.invoice,
-            sale.customer || 'Cash',
-            "Composition Dealer", 
-            sale.total, // Composition mein tax alag se nahi lagta
-            0,
-            0,
-            0,
-            sale.total,
-            sale.paymentMode
-        ]);
-    });
-
     let csv = rows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
-    let filename = type === 'monthly' ? `Monthly_GST_${selectedMonth}.csv` : `FY_Report_${getFinancialYear()}.csv`;
-    
     let blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     let a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = filename;
+    a.download = `Sales_Report_${new Date().toLocaleDateString()}.csv`;
     a.click();
 }
 

@@ -91,6 +91,7 @@
         
         <button class="btn-load" style="background:#1f7244; margin-left:10px;" onclick="exportDataToExcel()">📥 EXCEL</button>
         <button class="btn-load" style="background:#2980b9; margin-left: 10px;" onclick="exportGSTReport()">📊 GST REPORT</button>
+        <button class="btn-load" style="background:#e67e22; margin-left: 10px;" onclick="exportFinancialReport()">📈 FINANCE REPORT</button>
         <button class="btn-load" style="background:#dc2626;" onclick="promptCancel()">❌ CANCEL</button>
     </div>
     
@@ -387,6 +388,18 @@ function saveBill() {
         })).filter(i => i.name);
 
         let subtotal = items.reduce((s, i) => s + Number(i.worth), 0);
+let steamPressAmt = 0;
+let stitchingAmt = 0;
+
+items.forEach(i => {
+    let amt = (Number(i.worth) || 0) - (Number(i.disc) || 0);
+    // Agar name mein (SP) ya (sp) hai toh Steam Press mein count hoga
+    if (i.name.toUpperCase().includes("(SP)")) {
+        steamPressAmt += amt;
+    } else {
+        stitchingAmt += amt;
+    }
+});
         let totalDisc = items.reduce((s, i) => s + Number(i.disc), 0);
         let grandTotal = subtotal - totalDisc;
         let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
@@ -419,6 +432,8 @@ let fy = getFinancialYear();
         msg += `*Grand Total :* Rs ${grandTotal}\n`;
         msg += `*Recd Amount :* Rs ${paid}\n`;
         msg += `*Balance Amount :* Rs ${bal}\n\n`;
+        msg += `*Stitching Total:* Rs ${stitchingAmt}\n`;
+        msg += `*Steam Press Total:* Rs ${steamPressAmt}\n\n`;
 
         msg += `*Payment History :*\n`;
         if(currentPayments.length > 0) {
@@ -1256,6 +1271,79 @@ function getFinancialYear() {
         return `${prevShortYear}-${shortYear}`;
     }
 }window.onload
+
+function exportFinancialReport() {
+    try {
+        let type = prompt("Report Type chunein:\n1. DAILY\n2. MONTHLY\n3. YEARLY", "DAILY");
+        if (!type) return;
+
+        let rows = [["Date", "Bill No", "Customer", "Stitching (₹)", "Steam Press (₹)", "Payment Mode", "Total Received (₹)"]];
+        let billList = Object.keys(localBillsData).filter(k => k.startsWith('bill_')).map(k => localBillsData[k]);
+        let today = new Date().toISOString().split('T')[0];
+        
+        let filteredData = [];
+
+        // 1. Data Filter karna
+        billList.forEach(bill => {
+            if (bill.payments) {
+                bill.payments.forEach(p => {
+                    let pDate = p.date;
+                    let isMatch = false;
+
+                    if (type.toUpperCase() === "DAILY" && pDate === today) isMatch = true;
+                    if (type.toUpperCase() === "MONTHLY" && pDate.substring(0, 7) === today.substring(0, 7)) isMatch = true;
+                    if (type.toUpperCase() === "YEARLY" && pDate.substring(0, 4) === today.substring(0, 4)) isMatch = true;
+
+                    if (isMatch) {
+                        let bSteam = 0, bStitch = 0;
+                        bill.items.forEach(item => {
+                            let itemTotal = (Number(item.worth) || 0) - (Number(item.disc) || 0);
+                            if (item.name.toUpperCase().includes("(SP)")) bSteam += itemTotal;
+                            else bStitch += itemTotal;
+                        });
+                        
+                        filteredData.push({
+                            date: pDate,
+                            id: bill.id,
+                            name: bill.name,
+                            stitch: bStitch,
+                            steam: bSteam,
+                            mode: p.mode,
+                            amount: p.amount
+                        });
+                    }
+                });
+            }
+        });
+
+        if (filteredData.length === 0) return alert("Is period ka koi data nahi mila!");
+
+        // 2. DATE-WISE SORTING (Purani date upar, nayi niche)
+        filteredData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // 3. Rows mein data bharna aur Grand Total nikalna
+        let totalStitch = 0, totalSteam = 0, totalRec = 0;
+        
+        filteredData.forEach(d => {
+            rows.push([cleanDate(d.date), d.id, d.name, d.stitch, d.steam, d.mode, d.amount]);
+            totalStitch += d.stitch;
+            totalSteam += d.steam;
+            totalRec += d.amount;
+        });
+
+        // 4. Footer Row (Grand Total)
+        rows.push(["", "", "GRAND TOTAL", totalStitch, totalSteam, "", totalRec]);
+
+        // 5. Excel File Generate karna
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sales_Report");
+        XLSX.writeFile(wb, `Sanskriti_${type}_Report_${today}.xlsx`);
+
+    } catch (e) { 
+        alert("Report Error: " + e.message); 
+    }
+}
 
 </script>
 
