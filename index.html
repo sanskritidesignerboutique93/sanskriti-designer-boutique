@@ -123,20 +123,39 @@
     </div>
 
     <div id="stock" class="section">
-        <h2>Stock Management</h2>
-        <input id="name" placeholder="Product Name">
-        <input id="size" placeholder="Size">
-        <input id="price" type="number" placeholder="Price">
-        <input id="qty" type="number" placeholder="Quantity">
-        <input id="uniqueCode" placeholder="Unique Code (Ex: JP)">
-        <button onclick="addStock()" style="background:black; color:white;">Add Item</button>
-        <table>
-            <thead>
-                <tr><th>S.No</th><th>Barcode</th><th>Name</th><th>Size</th><th>Price</th><th>Stock</th><th>Print</th><th>Edit</th><th>Delete</th></tr>
-            </thead>
-            <tbody id="stockTable"></tbody>
-        </table>
-    </div>
+    <h2>Stock Management</h2>
+    <select id="category" style="padding:8px; margin:5px; border-radius:4px;">
+    <option value="Ready-made">Ready-made (Pcs)</option>
+    <option value="Fabric">Fabric (Mtr)</option>
+    <option value="Accessories">Accessories (Pcs)</option> </select>
+</select>
+<input id="name" placeholder="Product Name">
+    <input id="size" placeholder="Size">
+    <input id="pRate" type="number" placeholder="Purchase Rate (P.Rate)"> <input id="price" type="number" placeholder="Sale Price">
+    <input id="qty" type="number" step="0.01" placeholder="Quantity">
+<select id="unit" style="padding:8px; border-radius:4px; margin:5px;">
+    <option value="Pcs">Pcs</option>
+    <option value="Mtr">Mtr</option>
+</select>
+    <input id="uniqueCode" placeholder="Barcode Prefix (Ex: SAN, AF)">
+    <button onclick="addStock()" style="background:black; color:white;">Add Item</button>
+    <table>
+        <thead>
+            <tr>
+                <th>S.No</th>
+                <th>Barcode</th>
+                <th>Name</th>
+                <th>Size</th>
+                <th>P.Rate</th> <th>Sale Price</th>
+                <th>Stock</th>
+                <th>Print</th>
+                <th>Edit</th>
+                <th>Delete</th>
+            </tr>
+        </thead>
+        <tbody id="stockTable"></tbody>
+    </table>
+</div>
 
     <div id="sales" class="section active">
         <h2>Billing</h2>
@@ -330,34 +349,40 @@ function updateDashboard() {
 }
 
 /* --- STOCK LOGIC --- */
-function generateBarcodeWithCode(uniqueCode) {
-    let prefix = ["AS", "BS", "KU", "PB"];
-    let p = prefix[Math.floor(Math.random() * prefix.length)];
+function generateBarcodeWithCode(customPrefix) {
     let random6 = Math.floor(100000 + Math.random() * 900000);
-    return p + random6 + uniqueCode;
+    // Aapka Prefix + Random Number
+    return customPrefix.toUpperCase() + random6; 
 }
 
 function addStock() {
+    let cat = document.getElementById("category").value;
     let name = document.getElementById("name").value;
     let size = document.getElementById("size").value;
+    let pRate = document.getElementById("pRate").value; 
     let price = document.getElementById("price").value;
     let qty = document.getElementById("qty").value;
-    let uniqueCode = document.getElementById("uniqueCode").value;
-    if (!name || !price || !qty || !uniqueCode) { alert("Fill all fields"); return; }
-    
-    db.ref("sanskriti_stock").push({
-        barcode: generateBarcodeWithCode(uniqueCode),
-        name: name,
-        size: size,
-        price: Number(price),
-        qty: Number(qty)
-    });
-    
-    document.getElementById("name").value = "";
-    document.getElementById("price").value = "";
-    document.getElementById("qty").value = "";
-}
+    let prefix = document.getElementById("uniqueCode").value.trim().toUpperCase();
 
+    if (!name || !price || !qty || !prefix || !pRate) { alert("Fields fill karein!"); return; }
+    
+    let finalBarcode = prefix + Math.floor(100000 + Math.random() * 900000) + pRate;
+
+    db.ref("sanskriti_stock").push({
+    category: cat, 
+    barcode: finalBarcode, 
+    name: name, 
+    size: size,
+    pRate: Number(pRate), 
+    price: Number(price), 
+    qty: Number(qty),
+        unit: document.getElementById("unit").value, prefix: prefix
+    }).then(() => {
+        document.getElementById("name").value = ""; document.getElementById("pRate").value = "";
+        document.getElementById("price").value = ""; document.getElementById("qty").value = "";
+        alert("Added: " + finalBarcode);
+    });
+}
 function renderStock() {
     let tbody = document.getElementById("stockTable");
     if(!tbody) return;
@@ -369,9 +394,10 @@ function renderStock() {
             <td>${i.barcode}</td>
             <td id="name-${index}">${i.name}</td>
             <td id="size-${index}">${i.size}</td>
+            <td id="pRate-${index}">${i.pRate || 0}</td>
             <td id="price-${index}">${i.price}</td>
-            <td id="qty-${index}">${i.qty}</td>
-            <td><button onclick="printBarcode('${i.barcode}','${i.name}','${i.price}','${i.size}', '${index+1}', '${i.qty}')">Print</button></td>
+            <td id="qty-${index}">${i.qty} ${i.unit || 'Pcs'}</td>
+            <td><button onclick="printBarcode('${i.barcode}','${i.name}','${i.price}','${i.size}', '${index+1}', '${i.qty}', '${i.pRate || 0}')">Print</button></td>
             <td id="edit-cell-${index}"><button class="btn-edit" onclick="editRow(${index})">Edit</button></td>
             <td><button class="btn-delete" onclick="deleteStock('${i.id}')">Delete</button></td>`;
         tbody.appendChild(tr);
@@ -379,14 +405,15 @@ function renderStock() {
 }
 
 function editRow(index) {
-    // Password check add kiya gaya hai
     if (!verifyActionPassword()) return; 
 
     let item = stock[index];
-    document.getElementById(`name-${index}`).innerHTML = `<input type="text" id="edit-name-${index}" class="edit-input" style="width:120px" value="${item.name}">`;
+    document.getElementById(`name-${index}`).innerHTML = `<input type="text" id="edit-name-${index}" class="edit-input" style="width:100px" value="${item.name}">`;
     document.getElementById(`size-${index}`).innerHTML = `<input type="text" id="edit-size-${index}" class="edit-input" style="width:50px" value="${item.size}">`;
+    document.getElementById(`pRate-${index}`).innerHTML = `<input type="number" id="edit-pRate-${index}" class="edit-input" style="width:70px" value="${item.pRate || 0}">`;
     document.getElementById(`price-${index}`).innerHTML = `<input type="number" id="edit-price-${index}" class="edit-input" style="width:70px" value="${item.price}">`;
-    document.getElementById(`qty-${index}`).innerHTML = `<input type="number" id="edit-qty-${index}" class="edit-input" style="width:50px" value="${item.qty}">`;
+    document.getElementById(`qty-${index}`).innerHTML = `<input type="number" step="0.01" id="edit-qty-${index}" class="edit-input" style="width:50px" value="${item.qty}"> 
+<select id="edit-unit-${index}"><option value="Pcs" ${(!item.unit || item.unit==='Pcs')?'selected':''}>Pcs</option><option value="Mtr" ${item.unit==='Mtr'?'selected':''}>Mtr</option></select>`;
     document.getElementById(`edit-cell-${index}`).innerHTML = `<button class="btn-save" onclick="saveRow(${index})">Save</button>`;
 }
 
@@ -395,8 +422,10 @@ function saveRow(index) {
     db.ref("sanskriti_stock/" + id).update({
         name: document.getElementById(`edit-name-${index}`).value,
         size: document.getElementById(`edit-size-${index}`).value,
+        pRate: Number(document.getElementById(`edit-pRate-${index}`).value),
         price: Number(document.getElementById(`edit-price-${index}`).value),
-        qty: Number(document.getElementById(`edit-qty-${index}`).value)
+        qty: Number(document.getElementById(`edit-qty-${index}`).value),
+unit: document.getElementById(`edit-unit-${index}`).value
     });
 }
 
@@ -433,12 +462,36 @@ function addExchangeToBill() {
 function addBill(code, isExchange) {
     let item = stock.find(i => i.barcode === code);
     if (!item) return;
+
     let existing = bill.find(b => b.barcode === code && b.isExchange === isExchange);
-    if (existing) { existing.qty++; existing.total = existing.price * existing.qty; }
-    else { 
-        let priceValue = isExchange ? -item.price : item.price;
-        let tagName = isExchange ? " (EXCH)" : " (Ready-made)";
-        bill.push({ barcode: item.barcode, name: item.name + tagName, price: priceValue, qty: 1, total: priceValue, isStitching: false, isExchange: isExchange }); 
+    if (existing) { 
+        existing.qty++; 
+        existing.total = existing.price * existing.qty; 
+    } else { 
+        // Yahan tags ko update kiya gaya hai aapki requirement ke hisaab se
+        let unitTag = "";
+        if (item.category === "Ready-made") {
+            unitTag = " (Ready-made)";
+        } else if (item.category === "Fabric") {
+            unitTag = " (Fabrics)";
+        } else if (item.category === "Accessories") {
+            unitTag = " (Accessories)";
+        } else {
+            // Default fallback agar category match na ho
+            unitTag = (item.unit === "Mtr") ? " (Mtr)" : " (Pcs)";
+        }
+
+        if(isExchange) unitTag = " (EXCH)";
+
+        bill.push({ 
+            barcode: item.barcode, 
+            name: item.name + unitTag,
+            price: isExchange ? -item.price : item.price, 
+            qty: 1, 
+            total: isExchange ? -item.price : item.price, 
+            isStitching: false, 
+            isExchange: isExchange 
+        }); 
     }
     renderBill();
 }
@@ -751,31 +804,40 @@ function printReceipt(sale) {
     setTimeout(() => { w.print(); w.close(); }, 500);
 }
 
-function printBarcode(barcode, name, price, size, sno, totalQty) {
+function printBarcode(barcode, name, price, size, sno, totalQty, pRate) {
     let w = window.open("", "", "width=900,height=600");
     let labelsHTML = "";
     for (let i = 1; i <= totalQty; i++) {
-        let serialLabel = `S.${sno} - ${i}/${totalQty}`;
+        // Serial number left mein aur Quantity (1/2) right mein align karne ke liye
+        let serialLabel = `S.${sno}`;
+        let qtyLabel = `${i}/${totalQty}`;
+        
         labelsHTML += `
         <div class="sticker-row">
             <div class="label-box">
-                <div class="sno-info">${serialLabel}</div>
+                <div class="header-info">
+                    <span class="sno-left">${serialLabel}</span>
+                    <span class="qty-right">${qtyLabel}</span>
+                </div>
                 <div class="price">₹${price}</div>
                 <div class="name">${name}</div>
                 <div class="barcode-wrapper">
                     <svg class="barcode-svg" data-val="${barcode}"></svg>
                 </div>
-                <div class="purchase-rate">${barcode}</div>
+                <div class="barcode-num">${barcode}</div> 
                 <div class="size">SIZE - ${size}</div>
             </div>
             <div class="label-box">
-                <div class="sno-info">${serialLabel}</div>
+                <div class="header-info">
+                    <span class="sno-left">${serialLabel}</span>
+                    <span class="qty-right">${qtyLabel}</span>
+                </div>
                 <div class="price">₹${price}</div>
                 <div class="name">${name}</div>
                 <div class="barcode-wrapper">
                     <svg class="barcode-svg" data-val="${barcode}"></svg>
                 </div>
-                <div class="purchase-rate">${barcode}</div>
+                <div class="barcode-num">${barcode}</div>
                 <div class="size">SIZE - ${size}</div>
             </div>
         </div>`;
@@ -786,39 +848,27 @@ function printBarcode(barcode, name, price, size, sno, totalQty) {
     <style>
         @page { size: 100mm 25mm; margin: 0; }
         body { margin: 0; font-family: Arial; background: white; }
-        .sticker-row { 
-            display: flex; 
-            width: 100mm; 
-            height: 25mm; 
-            page-break-after: always; 
-            align-items: center;
-        }
-        .label-box { 
-            width: 50mm; 
-            height: 25mm; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            position: relative; 
-            box-sizing: border-box; 
-            padding: 2px;
-            overflow: hidden;
-        }
-        .sno-info { position: absolute; top: 1px; right: 5px; font-size: 13px; font-weight: bold; }
-        .price { font-size: 19px; font-weight: bold; margin: 0; }
-        .name { font-size: 15px; font-weight: bold; margin: 1px 0; text-transform: uppercase; }
-        .barcode-wrapper { 
+        .sticker-row { display: flex; width: 100mm; height: 25mm; page-break-after: always; align-items: center; }
+        .label-box { width: 50mm; height: 25mm; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-sizing: border-box; padding: 2px; }
+        
+        /* Header alignment for S.No and Qty */
+        .header-info { 
+            position: absolute; 
+            top: 2px; 
             width: 90%; 
-            height: 07mm; 
             display: flex; 
-            justify-content: center; 
-            align-items: center;
-            margin: 1px 0;
+            justify-content: space-between; 
+            font-size: 12px; 
+            font-weight: bold; 
         }
-        .barcode-svg { width: 100%; height: 100%; }
-        .purchase-rate { font-size: 12.5px; font-weight: bold; letter-spacing: 0.5px; }
-        .size { font-size: 13px; font-weight: bold; }
+        .sno-left { text-align: left; }
+        .qty-right { text-align: right; }
+        .price { font-size: 19px; font-weight: bold; margin-top: 1px 0; }    
+        .barcode-wrapper { width: 95%; height: 6mm; display: flex; justify-content: center; margin: 1px 0; }
+        .barcode-svg { width: 95%; height: 100%; }
+        .barcode-num { font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-bottom: 2px;}
+        .name { font-size: 16px; font-weight: bold; margin: 1px 0; text-transform: uppercase; }       
+        .size { font-size: 10px; font-weight: bold; }
     </style>
     </head><body>
     ${labelsHTML}
@@ -827,11 +877,10 @@ function printBarcode(barcode, name, price, size, sno, totalQty) {
             document.querySelectorAll(".barcode-svg").forEach(el => {
                 JsBarcode(el, el.getAttribute("data-val"), {
                     format: "CODE128",
-                    width: 1.5, // Bar ki width thodi kam ki hai taaki scan area clear rahe
-                    height: 40, 
+                    width: 1.2, 
+                    height: 15, 
                     displayValue: false,
-                    margin: 0,
-                    background: "transparent"
+                    margin: 0
                 });
             });
             setTimeout(() => { window.print(); window.close(); }, 500);
@@ -926,6 +975,7 @@ function clearAllData() {
         alert("Wrong Password! Data not cleared.");
     }
 }
+
 
 </script>
 </body>
