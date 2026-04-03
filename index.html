@@ -323,13 +323,13 @@ function showPage(p) {
 }
 
 /* --- DASHBOARD LOGIC --- */
-function updateDashboard() {
+ function updateDashboard() {
     let today = new Date().toISOString().split('T')[0];
     let totalStockQty = 0;
     stock.forEach(i => totalStockQty += Number(i.qty));
     document.getElementById("totalStock").innerText = totalStockQty;
     
-    let lifetime = 0, todayTotal = 0, cash = 0, online = 0;
+    let lifetime = 0, todayTotal = 0;
     let rSale = 0, fSale = 0, aSale = 0;
 
     salesHistory.forEach(s => {
@@ -339,26 +339,26 @@ function updateDashboard() {
         if(sDate === today) {
             todayTotal += Number(s.total);
             
-            // Payment Mode calculation
-            if(s.paymentMode === "Cash") cash += Number(s.total);
-            else if(s.paymentMode === "Split") { 
-                cash += Number(s.splitDetails?.cash || 0); 
-                online += Number(s.splitDetails?.online || 0); 
-            }
-            else { online += Number(s.total); }
+            // Yahan hum calculate kar rahe hain ki bina discount ke total kitna tha
+            let billSumBeforeDiscount = s.items.reduce((acc, curr) => acc + Number(curr.total), 0);
+            
+            // Discount Percentage calculate karein (Discount / Total Before Discount)
+            // Agar bill 0 ka hai toh ratio 0 rahega
+            let discountRatio = billSumBeforeDiscount > 0 ? (Number(s.discount) / billSumBeforeDiscount) : 0;
 
-            // FIXED CATEGORY CALCULATION:
             s.items.forEach(item => {
                 let itemTotal = Number(item.total);
+                // Har item se uske hisse ka discount minus karein
+                let finalItemPrice = itemTotal - (itemTotal * discountRatio);
+                
                 let itemName = item.name || "";
 
-                // Check for the tags you are adding in addBill()
                 if(itemName.includes("Ready-made")) {
-                    rSale += itemTotal;
+                    rSale += finalItemPrice;
                 } else if(itemName.includes("Fabrics")) {
-                    fSale += itemTotal;
+                    fSale += finalItemPrice;
                 } else if(itemName.includes("Accessories")) {
-                    aSale += itemTotal;
+                    aSale += finalItemPrice;
                 } 
             });
         }
@@ -367,7 +367,7 @@ function updateDashboard() {
     document.getElementById("lifetimeSale").innerText = Math.round(lifetime);
     document.getElementById("todaySale").innerText = Math.round(todayTotal);
     
-    // UI Update for Categories
+    // UI Update (Round off values)
     document.getElementById("readySaleToday").innerText = Math.round(rSale);
     document.getElementById("fabricSaleToday").innerText = Math.round(fSale);
     document.getElementById("accessSaleToday").innerText = Math.round(aSale);
@@ -388,26 +388,44 @@ function addStock() {
     let price = document.getElementById("price").value;
     let qty = document.getElementById("qty").value;
     let prefix = document.getElementById("uniqueCode").value.trim().toUpperCase();
+    let unit = document.getElementById("unit").value;
 
-    if (!name || !price || !qty || !prefix || !pRate) { alert("Fields fill karein!"); return; }
+    if (!name || !price || !qty || !prefix || !pRate) { 
+        alert("Sari fields bharna zaroori hai!"); 
+        return; 
+    }
     
+    // Barcode Generation logic
     let finalBarcode = prefix + Math.floor(100000 + Math.random() * 900000) + pRate;
 
+    // Firebase mein data save hone ke baad ka action
     db.ref("sanskriti_stock").push({
-    category: cat, 
-    barcode: finalBarcode, 
-    name: name, 
-    size: size,
-    pRate: Number(pRate), 
-    price: Number(price), 
-    qty: Number(qty),
-        unit: document.getElementById("unit").value, prefix: prefix
+        category: cat, 
+        barcode: finalBarcode, 
+        name: name, 
+        size: size,
+        pRate: Number(pRate), 
+        price: Number(price), 
+        qty: Number(qty),
+        unit: unit, 
+        prefix: prefix
     }).then(() => {
-        document.getElementById("name").value = ""; document.getElementById("pRate").value = "";
-        document.getElementById("price").value = ""; document.getElementById("qty").value = "";
-        alert("Added: " + finalBarcode);
+        // 1. Pehle barcode print window open hogi
+        // Hum current stock length + 1 ko S.No ki tarah bhej rahe hain
+        printBarcode(finalBarcode, name, price, size, stock.length + 1, qty, pRate);
+
+        // 2. Uske baad input fields clear honge
+        document.getElementById("name").value = ""; 
+        document.getElementById("pRate").value = "";
+        document.getElementById("price").value = ""; 
+        document.getElementById("qty").value = "";
+        
+        console.log("Item added and print triggered: " + finalBarcode);
+    }).catch((error) => {
+        alert("Error saving data: " + error.message);
     });
 }
+
 function renderStock() {
     let tbody = document.getElementById("stockTable");
     if(!tbody) return;
