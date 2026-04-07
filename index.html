@@ -104,15 +104,30 @@
     <button onclick="exportGSTReport('monthly')" style="background:#673AB7; color:white;">Download Monthly GST</button>
     <button onclick="exportGSTReport('yearly')" style="background:#3F51B5; color:white;">Download Full FY Report</button>
 </div>
-            <div class="stat-card"><h3>Total Stock Items</h3><p id="totalStock">0</p></div>
-            <div class="stat-card green-card"><h3>Lifetime Sale</h3><p>₹ <span id="lifetimeSale">0</span></p></div>
-            <div class="stat-card blue-card"><h3>Today's Sale</h3><p>₹ <span id="todaySale">0</span></p></div>
-            <div class="stat-card orange-card">
-    <h3>Category Wise Sale (Today)</h3>
+          <div class="stat-card">
+    <h3>Stock Summary (In-Hand)</h3>
     <div style="font-size: 15px; margin-top: 10px; font-weight: bold; color: #333;">
-        Ready-made: ₹<span id="readySaleToday">0</span><br>
-        Fabrics: ₹<span id="fabricSaleToday">0</span><br>
-        Accessories: ₹<span id="accessSaleToday">0</span>
+        Ready-made: <span id="totalReadyStock">0</span> Pcs<br>
+        Dupatta: <span id="totalDupattaStock">0</span> Pcs<br>
+        Fabrics: <span id="totalFabricStock">0</span> Mtr<br>
+        Latkan: <span id="totalLatkanStock">0</span> Pcs<br>
+        Lace: <span id="totalLaceStock">0</span> Mtr
+<div class="stat-card green-card">
+    <h3>Today's Sale Summary</h3>
+    <div style="font-size: 15px; margin-top: 10px; font-weight: bold; color: #333;">
+        Ready-made: <span id="todayReadySale">0</span> Pcs<br>
+        Dupatta: <span id="todayDupattaSale">0</span> Pcs<br>
+        Fabrics: <span id="todayFabricSale">0.00</span> Mtr<br>
+        Latkan: <span id="todayLatkanSale">0.00</span> Pcs<br>
+        Lace: <span id="todayLaceSale">0.00</span> Mtr<br>
+        <hr>
+        Total Sale: ₹ <span id="todayTotalAmt">0</span>
+<hr>
+Cash: ₹ <span id="todayCashAmt">0</span><br>
+UPI: ₹ <span id="todayUpiAmt">0</span><br>
+Card: ₹ <span id="todayCardAmt">0</span>
+    </div>
+</div>
     </div>
 </div>
         </div>
@@ -125,10 +140,16 @@
 
     <div id="stock" class="section">
     <h2>Stock Management</h2>
+<div style="margin-bottom: 10px;">
+    <button onclick="renderStock('Main')" style="background:#333; color:white;">Main Stock (Ready-made)</button>
+    <button onclick="renderStock('Fabrics')" style="background:#2196F3; color:white;">Fabrics Stock</button>
+    <button onclick="renderStock('LatkanLace')" style="background:#673AB7; color:white;">Latkan & Lace Stock</button>
+</div>
     <select id="category" style="padding:8px; margin:5px; border-radius:4px;">
     <option value="Ready-made">Ready-made (Pcs)</option>
     <option value="Fabric">Fabric (Mtr)</option>
-    <option value="Accessories">Accessories (Pcs)</option> </select>
+    <option value="Latkan">Latkan (Pcs)</option> 
+    <option value="Lace">Lace (Mtr)</option>
 </select>
 <input id="name" placeholder="Product Name">
     <input id="size" placeholder="Size">
@@ -139,7 +160,7 @@
     <option value="Mtr">Mtr</option>
 </select>
     <input id="uniqueCode" placeholder="Barcode Prefix (Ex: SAN, AF)">
-    <button onclick="addStock()" style="background:black; color:white;">Add Item</button>
+    <button id="addBtn" onclick="addStock()" style="background:black; color:white;">Add Item</button>
     <table>
         <thead>
             <tr>
@@ -274,8 +295,7 @@ function checkPassword() {
         document.getElementById("mainAppWrapper").style.display = "block";
         loadOnlineData();
     } else { 
-        alert("Incorrect Password!"); 
-    }
+        alert("Incorrect Password!"); }
 }
 
 /* --- ACTION PROTECTION (Edit/Delete Password) --- */
@@ -323,54 +343,81 @@ function showPage(p) {
 }
 
 /* --- DASHBOARD LOGIC --- */
- function updateDashboard() {
+function updateDashboard() {
     let today = new Date().toISOString().split('T')[0];
-    let totalStockQty = 0;
-    stock.forEach(i => totalStockQty += Number(i.qty));
-    document.getElementById("totalStock").innerText = totalStockQty;
     
-    let lifetime = 0, todayTotal = 0;
-    let rSale = 0, fSale = 0, aSale = 0;
+    // Sabhi variables ek hi baar declare karein
+    let readyQty = 0, fabricQty = 0, latkanQty = 0, laceQty = 0, dupattaQty = 0;
+    let sReady = 0, sDupatta = 0, sFabric = 0, sLatkan = 0, sLace = 0, todayTotal = 0;
+    let tCash = 0, tUPI = 0, tCard = 0; 
 
+    // 1. Current Stock Calculation
+    stock.forEach(i => {
+        let availableQty = Number(i.qty) || 0; 
+        let itemName = (i.name || "").toUpperCase().trim();
+
+        if (i.category === "Ready-made") {
+            if (itemName.includes("DUPATTA")) { dupattaQty += availableQty; } 
+            else { readyQty += availableQty; }
+        } else if (i.category === "Fabric") { fabricQty += availableQty; } 
+        else if (i.category === "Latkan") { latkanQty += availableQty; } 
+        else if (i.category === "Lace") { laceQty += availableQty; }
+    });
+
+    // 2. Today's Sales Calculation
     salesHistory.forEach(s => {
-        lifetime += Number(s.total);
-        let sDate = s.date.split('T')[0];
-        
-        if(sDate === today) {
-            todayTotal += Number(s.total);
-            
-            // Yahan hum calculate kar rahe hain ki bina discount ke total kitna tha
-            let billSumBeforeDiscount = s.items.reduce((acc, curr) => acc + Number(curr.total), 0);
-            
-            // Discount Percentage calculate karein (Discount / Total Before Discount)
-            // Agar bill 0 ka hai toh ratio 0 rahega
-            let discountRatio = billSumBeforeDiscount > 0 ? (Number(s.discount) / billSumBeforeDiscount) : 0;
+        if(s.date && s.date.split('T')[0] === today) { 
+            let saleTotal = Number(s.total) || 0;
+            todayTotal += saleTotal; 
 
+            // Payment Mode Logic
+            if (s.paymentMode === "Cash") {
+                tCash += saleTotal;
+            } else if (s.paymentMode === "UPI") {
+                tUPI += saleTotal;
+            } else if (s.paymentMode === "Card") {
+                tCard += saleTotal;
+            } else if (s.paymentMode === "Split" && s.splitDetails) {
+                tCash += Number(s.splitDetails.cash) || 0;
+                tUPI += Number(s.splitDetails.online) || 0;
+            } 
+            
             s.items.forEach(item => {
-                let itemTotal = Number(item.total);
-                // Har item se uske hisse ka discount minus karein
-                let finalItemPrice = itemTotal - (itemTotal * discountRatio);
-                
-                let itemName = item.name || "";
-
-                if(itemName.includes("Ready-made")) {
-                    rSale += finalItemPrice;
-                } else if(itemName.includes("Fabrics")) {
-                    fSale += finalItemPrice;
-                } else if(itemName.includes("Accessories")) {
-                    aSale += finalItemPrice;
-                } 
+                let qty = Number(item.qty) || 0;
+                let itemName = (item.name || "").toUpperCase();
+                if (itemName.includes("(READY-MADE)")) {
+                    if (itemName.includes("DUPATTA")) { sDupatta += qty; }
+                    else { sReady += qty; }
+                } else if (itemName.includes("(FABRICS)")) {
+                    sFabric += qty;
+                } else if (itemName.includes("(ACCESSORIES)")) {
+                    if (itemName.includes("LATKAN")) { sLatkan += qty; }
+                    else { sLace += qty; }
+                }
             });
         }
     });
 
-    document.getElementById("lifetimeSale").innerText = Math.round(lifetime);
-    document.getElementById("todaySale").innerText = Math.round(todayTotal);
-    
-    // UI Update (Round off values)
-    document.getElementById("readySaleToday").innerText = Math.round(rSale);
-    document.getElementById("fabricSaleToday").innerText = Math.round(fSale);
-    document.getElementById("accessSaleToday").innerText = Math.round(aSale);
+    // 3. UI Update
+    // Stock Summary
+    document.getElementById("totalReadyStock").innerText = Math.floor(readyQty);
+    document.getElementById("totalDupattaStock").innerText = Math.floor(dupattaQty);
+    document.getElementById("totalFabricStock").innerText = fabricQty.toFixed(2);
+    document.getElementById("totalLatkanStock").innerText = latkanQty.toFixed(2);
+    document.getElementById("totalLaceStock").innerText = laceQty.toFixed(2);
+
+    // Sales Summary
+    if(document.getElementById("todayCashAmt")) {
+        document.getElementById("todayCashAmt").innerText = Math.round(tCash);
+        document.getElementById("todayUpiAmt").innerText = Math.round(tUPI);
+        document.getElementById("todayCardAmt").innerText = Math.round(tCard);
+        document.getElementById("todayReadySale").innerText = Math.floor(sReady);
+        document.getElementById("todayDupattaSale").innerText = Math.floor(sDupatta);
+        document.getElementById("todayFabricSale").innerText = sFabric.toFixed(2);
+        document.getElementById("todayLatkanSale").innerText = sLatkan.toFixed(2);
+        document.getElementById("todayLaceSale").innerText = sLace.toFixed(2);
+        document.getElementById("todayTotalAmt").innerText = Math.round(todayTotal);
+    }
 }
 
 /* --- STOCK LOGIC --- */
@@ -394,53 +441,84 @@ function addStock() {
         alert("Sari fields bharna zaroori hai!"); 
         return; 
     }
-    
-    // Barcode Generation logic
+
+    let btn = document.getElementById("addBtn");
+    btn.disabled = true;
+    btn.innerText = "Saving...";
+
     let finalBarcode = prefix + Math.floor(100000 + Math.random() * 900000) + pRate;
 
-    // Firebase mein data save hone ke baad ka action
+    // S.No Logic for Fabrics, Accessories and Main Stock
+    let currentSNo = 0;
+    if (cat === "Fabric") {
+        currentSNo = stock.filter(item => item.category === "Fabric").length + 1;
+    } else if (cat === "Latkan" || cat === "Lace") {
+        currentSNo = stock.filter(item => item.category === "Latkan" || item.category === "Lace").length + 1;
+    } else {
+        currentSNo = stock.filter(item => item.category === "Ready-made").length + 1;
+    }
+
     db.ref("sanskriti_stock").push({
-        category: cat, 
-        barcode: finalBarcode, 
-        name: name, 
+        category: cat,
+        barcode: finalBarcode,
+        name: name,
         size: size,
-        pRate: Number(pRate), 
-        price: Number(price), 
+        pRate: Number(pRate),
+        price: Number(price),
         qty: Number(qty),
-        unit: unit, 
+        unit: unit,
         prefix: prefix
     }).then(() => {
-        // 1. Pehle barcode print window open hogi
-        // Hum current stock length + 1 ko S.No ki tarah bhej rahe hain
-        printBarcode(finalBarcode, name, price, size, stock.length + 1, qty, pRate);
+        // Yahan unit pass karna zaroori hai taki Mtr wala 5MTR sticker logic chale
+        printBarcode(finalBarcode, name, price, size, currentSNo, qty, pRate, unit);
 
-        // 2. Uske baad input fields clear honge
-        document.getElementById("name").value = ""; 
+        document.getElementById("name").value = "";
         document.getElementById("pRate").value = "";
-        document.getElementById("price").value = ""; 
+        document.getElementById("price").value = "";
         document.getElementById("qty").value = "";
-        
-        console.log("Item added and print triggered: " + finalBarcode);
-    }).catch((error) => {
-        alert("Error saving data: " + error.message);
+
+        btn.disabled = false;
+        btn.innerText = "Add Item";
+    }).catch(err => {
+        alert("Error saving data: " + err.message);
+        btn.disabled = false;
+        btn.innerText = "Add Item";
     });
 }
+    // Firebase mein data save hone ke baad ka action
+    
 
-function renderStock() {
+// Stock filter state track karne ke liye variable
+let currentView = 'Main';
+
+function renderStock(viewType = currentView) {
+    currentView = viewType; 
     let tbody = document.getElementById("stockTable");
     if(!tbody) return;
     tbody.innerHTML = "";
-    stock.forEach((i, index) => {
+    
+    let filteredStock = stock.filter(item => {
+        if(viewType === 'Fabrics') {
+            return item.category === "Fabric";
+        } else if(viewType === 'LatkanLace') {
+            return item.category === "Latkan" || item.category === "Lace";
+        } else {
+            return item.category === "Ready-made";
+        }
+    });
+
+    filteredStock.forEach((i, index) => {
+        let displaySNo = index + 1;
         let tr = document.createElement("tr");
         tr.innerHTML = `
-            <td>${index + 1}</td>
+            <td>${displaySNo}</td>
             <td>${i.barcode}</td>
-            <td id="name-${index}">${i.name}</td>
+            <td id="name-${index}">${i.name} ${ (i.category === "Latkan" || i.category === "Lace") ? "(Accessories)" : "" }</td>
             <td id="size-${index}">${i.size}</td>
             <td id="pRate-${index}">${i.pRate || 0}</td>
             <td id="price-${index}">${i.price}</td>
             <td id="qty-${index}">${i.qty} ${i.unit || 'Pcs'}</td>
-            <td><button onclick="printBarcode('${i.barcode}','${i.name}','${i.price}','${i.size}', '${index+1}', '${i.qty}', '${i.pRate || 0}')">Print</button></td>
+            <td><button onclick="printBarcode('${i.barcode}','${i.name}','${i.price}','${i.size}', '${displaySNo}', '${i.qty}', '${i.pRate || 0}', '${i.unit}', '${i.category}')">Print</button></td>
             <td id="edit-cell-${index}"><button class="btn-edit" onclick="editRow(${index})">Edit</button></td>
             <td><button class="btn-delete" onclick="deleteStock('${i.id}')">Delete</button></td>`;
         tbody.appendChild(tr);
@@ -511,17 +589,14 @@ function addBill(code, isExchange) {
         existing.qty++; 
         existing.total = existing.price * existing.qty; 
     } else { 
-        // Yahan tags ko update kiya gaya hai aapki requirement ke hisaab se
         let unitTag = "";
+        // Latkan aur Lace dono ke liye (Accessories) likha jayega
         if (item.category === "Ready-made") {
             unitTag = " (Ready-made)";
         } else if (item.category === "Fabric") {
             unitTag = " (Fabrics)";
-        } else if (item.category === "Accessories") {
-            unitTag = " (Accessories)";
-        } else {
-            // Default fallback agar category match na ho
-            unitTag = (item.unit === "Mtr") ? " (Mtr)" : " (Pcs)";
+        } else if (item.category === "Latkan" || item.category === "Lace") {
+            unitTag = " (Accessories)"; 
         }
 
         if(isExchange) unitTag = " (EXCH)";
@@ -706,11 +781,12 @@ function refundSingleItem(saleIdx, itemIdx) {
 }
 
 function returnSale(index) {
-    // Password check add kiya gaya hai
     if (!verifyActionPassword()) return;
 
-    if (confirm("Return all items?")) {
-        let sale = salesHistory[index];
+    let sale = salesHistory[index];
+    
+    if (confirm(`Return all items for Invoice ${sale.invoice}? This will reuse this invoice number for the next sale.`)) {
+        // 1. Stock wapas add karna
         sale.items.forEach(ri => { 
             if(!ri.isStitching) { 
                 let si = stock.find(s => s.barcode === ri.barcode); 
@@ -720,7 +796,28 @@ function returnSale(index) {
                 } 
             } 
         });
-        db.ref("sanskriti_sales/" + sale.id).remove();
+
+        // 2. Invoice Counter ko Reset karna (Sirf tab jab ye current counter ka pichla number ho)
+        // Hum check kar rahe hain ki kya ye bill hamara current "invoiceCounter - 1" hai
+        db.ref("sanskriti_settings/invoiceCounter").get().then((snapshot) => {
+            if (snapshot.exists()) {
+                let currentCounter = snapshot.val();
+                
+                // Invoice string se number nikalna (e.g., "INV008/26-27" -> 8)
+                let saleInvNumber = parseInt(sale.invoice.match(/\d+/)); 
+                
+                if (saleInvNumber === (currentCounter - 1)) {
+                    // Agar ye aakhiri bill tha, toh counter ko 1 piche kar do
+                    db.ref("sanskriti_settings/invoiceCounter").set(saleInvNumber);
+                    console.log("Invoice Counter reset to: " + saleInvNumber);
+                }
+            }
+        });
+
+        // 3. Sale record delete karna
+        db.ref("sanskriti_sales/" + sale.id).remove().then(() => {
+            alert("Sale Returned! Invoice " + sale.invoice + " is now available for next billing.");
+        });
     }
 }
 
@@ -847,20 +944,26 @@ function printReceipt(sale) {
     setTimeout(() => { w.print(); w.close(); }, 500);
 }
 
-function printBarcode(barcode, name, price, size, sno, totalQty, pRate) {
+function printBarcode(barcode, name, price, size, sno, totalQty, pRate, unit, category) {
     let w = window.open("", "", "width=900,height=600");
     let labelsHTML = "";
-    for (let i = 1; i <= totalQty; i++) {
-        // Serial number left mein aur Quantity (1/2) right mein align karne ke liye
+    
+    // Agar Fabric ya Lace hai toh unit 'Mtr' automatic set ho jaye (backups for old data)
+    let isMetric = (unit === "Mtr" || category === "Fabric" || category === "Lace");
+    let loopCount = isMetric ? 1 : totalQty;
+
+    for (let i = 1; i <= loopCount; i++) {
         let serialLabel = `S.${sno}`;
-        let qtyLabel = `${i}/${totalQty}`;
+        
+        // Agar Metric (Fabric/Lace) hai toh "10 MTR" dikhayega, nahi toh "1/10"
+        let qtyDisplay = isMetric ? `${totalQty} MTR` : `${i}/${totalQty}`;
         
         labelsHTML += `
         <div class="sticker-row">
             <div class="label-box">
                 <div class="header-info">
                     <span class="sno-left">${serialLabel}</span>
-                    <span class="qty-right">${qtyLabel}</span>
+                    <span class="qty-right">${qtyDisplay}</span>
                 </div>
                 <div class="price">₹${price}</div>
                 <div class="name">${name}</div>
@@ -873,7 +976,7 @@ function printBarcode(barcode, name, price, size, sno, totalQty, pRate) {
             <div class="label-box">
                 <div class="header-info">
                     <span class="sno-left">${serialLabel}</span>
-                    <span class="qty-right">${qtyLabel}</span>
+                    <span class="qty-right">${qtyDisplay}</span>
                 </div>
                 <div class="price">₹${price}</div>
                 <div class="name">${name}</div>
@@ -893,19 +996,7 @@ function printBarcode(barcode, name, price, size, sno, totalQty, pRate) {
         body { margin: 0; font-family: Arial; background: white; }
         .sticker-row { display: flex; width: 100mm; height: 25mm; page-break-after: always; align-items: center; }
         .label-box { width: 50mm; height: 25mm; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-sizing: border-box; padding: 2px; }
-        
-        /* Header alignment for S.No and Qty */
-        .header-info { 
-            position: absolute; 
-            top: 2px; 
-            width: 90%; 
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 12px; 
-            font-weight: bold; 
-        }
-        .sno-left { text-align: left; }
-        .qty-right { text-align: right; }
+        .header-info { position: absolute; top: 2px; width: 90%; display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; }
         .price { font-size: 19px; font-weight: bold; margin-top: 1px 0; }    
         .barcode-wrapper { width: 95%; height: 6mm; display: flex; justify-content: center; margin: 1px 0; }
         .barcode-svg { width: 95%; height: 100%; }
@@ -919,11 +1010,7 @@ function printBarcode(barcode, name, price, size, sno, totalQty, pRate) {
         window.onload = function() {
             document.querySelectorAll(".barcode-svg").forEach(el => {
                 JsBarcode(el, el.getAttribute("data-val"), {
-                    format: "CODE128",
-                    width: 1.2, 
-                    height: 15, 
-                    displayValue: false,
-                    margin: 0
+                    format: "CODE128", width: 1.2, height: 15, displayValue: false, margin: 0
                 });
             });
             setTimeout(() => { window.print(); window.close(); }, 500);
@@ -951,7 +1038,7 @@ function exportSalesDetail() {
             let category = "Other";
             if(item.name.includes("(Ready-made)")) category = "Ready-made";
             else if(item.name.includes("(Fabrics)")) category = "Fabrics";
-            else if(item.name.includes("(Accessories)")) category = "Accessories";
+            else if(item.name.includes("(Accessories)")) category = "Accessories"; // Ye Latkan/Lace ko handle karega
 
             rows.push([
                 formatDate(sale.date), 
