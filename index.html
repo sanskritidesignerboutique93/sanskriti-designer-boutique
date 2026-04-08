@@ -498,55 +498,58 @@ function renderStock(viewType = currentView) {
     tbody.innerHTML = "";
     
     let filteredStock = stock.filter(item => {
-        if(viewType === 'Fabrics') {
-            return item.category === "Fabric";
-        } else if(viewType === 'LatkanLace') {
-            return item.category === "Latkan" || item.category === "Lace";
-        } else {
-            return item.category === "Ready-made";
-        }
+        if(viewType === 'Fabrics') return item.category === "Fabric";
+        if(viewType === 'LatkanLace') return item.category === "Latkan" || item.category === "Lace";
+        return item.category === "Ready-made";
     });
 
     filteredStock.forEach((i, index) => {
         let displaySNo = index + 1;
         let tr = document.createElement("tr");
+        // Yahan ID ka use ho raha hai takki galat item edit/delete na ho
         tr.innerHTML = `
             <td>${displaySNo}</td>
             <td>${i.barcode}</td>
-            <td id="name-${index}">${i.name} ${ (i.category === "Latkan" || i.category === "Lace") ? "(Accessories)" : "" }</td>
-            <td id="size-${index}">${i.size}</td>
-            <td id="pRate-${index}">${i.pRate || 0}</td>
-            <td id="price-${index}">${i.price}</td>
-            <td id="qty-${index}">${i.qty} ${i.unit || 'Pcs'}</td>
+            <td id="name-${i.id}">${i.name} ${ (i.category === "Latkan" || i.category === "Lace") ? "(Accessories)" : "" }</td>
+            <td id="size-${i.id}">${i.size}</td>
+            <td id="pRate-${i.id}">${i.pRate || 0}</td>
+            <td id="price-${i.id}">${i.price}</td>
+            <td id="qty-${i.id}">${i.qty} ${i.unit || 'Pcs'}</td>
             <td><button onclick="printBarcode('${i.barcode}','${i.name}','${i.price}','${i.size}', '${displaySNo}', '${i.qty}', '${i.pRate || 0}', '${i.unit}', '${i.category}')">Print</button></td>
-            <td id="edit-cell-${index}"><button class="btn-edit" onclick="editRow(${index})">Edit</button></td>
+            <td id="edit-cell-${i.id}"><button class="btn-edit" onclick="editRow('${i.id}')">Edit</button></td>
             <td><button class="btn-delete" onclick="deleteStock('${i.id}')">Delete</button></td>`;
         tbody.appendChild(tr);
     });
 }
 
-function editRow(index) {
+function editRow(id) {
     if (!verifyActionPassword()) return; 
 
-    let item = stock[index];
-    document.getElementById(`name-${index}`).innerHTML = `<input type="text" id="edit-name-${index}" class="edit-input" style="width:100px" value="${item.name}">`;
-    document.getElementById(`size-${index}`).innerHTML = `<input type="text" id="edit-size-${index}" class="edit-input" style="width:50px" value="${item.size}">`;
-    document.getElementById(`pRate-${index}`).innerHTML = `<input type="number" id="edit-pRate-${index}" class="edit-input" style="width:70px" value="${item.pRate || 0}">`;
-    document.getElementById(`price-${index}`).innerHTML = `<input type="number" id="edit-price-${index}" class="edit-input" style="width:70px" value="${item.price}">`;
-    document.getElementById(`qty-${index}`).innerHTML = `<input type="number" step="0.01" id="edit-qty-${index}" class="edit-input" style="width:50px" value="${item.qty}"> 
-<select id="edit-unit-${index}"><option value="Pcs" ${(!item.unit || item.unit==='Pcs')?'selected':''}>Pcs</option><option value="Mtr" ${item.unit==='Mtr'?'selected':''}>Mtr</option></select>`;
-    document.getElementById(`edit-cell-${index}`).innerHTML = `<button class="btn-save" onclick="saveRow(${index})">Save</button>`;
+
+    let item = stock.find(s => s.id === id);
+    if(!item) return;
+    document.getElementById(`name-${id}`).innerHTML = `<input type="text" id="edit-name-${id}" class="edit-input" style="width:100px" value="${item.name}">`;
+    document.getElementById(`size-${id}`).innerHTML = `<input type="text" id="edit-size-${id}" class="edit-input" style="width:50px" value="${item.size}">`;
+    document.getElementById(`pRate-${id}`).innerHTML = `<input type="number" id="edit-pRate-${id}" class="edit-input" style="width:70px" value="${item.pRate || 0}">`;
+    document.getElementById(`price-${id}`).innerHTML = `<input type="number" id="edit-price-${id}" class="edit-input" style="width:70px" value="${item.price}">`;
+    document.getElementById(`qty-${id}`).innerHTML = `<input type="number" step="0.01" id="edit-qty-${id}" class="edit-input" style="width:50px" value="${item.qty}"> 
+        <select id="edit-unit-${id}">
+            <option value="Pcs" ${(!item.unit || item.unit==='Pcs')?'selected':''}>Pcs</option>
+            <option value="Mtr" ${item.unit==='Mtr'?'selected':''}>Mtr</option></select>`;
+    document.getElementById(`edit-cell-${id}`).innerHTML = `<button class="btn-save" onclick="saveRow('${id}')">Save</button>`;
 }
 
-function saveRow(index) {
-    let id = stock[index].id;
+function saveRow(id) {
     db.ref("sanskriti_stock/" + id).update({
-        name: document.getElementById(`edit-name-${index}`).value,
-        size: document.getElementById(`edit-size-${index}`).value,
-        pRate: Number(document.getElementById(`edit-pRate-${index}`).value),
-        price: Number(document.getElementById(`edit-price-${index}`).value),
-        qty: Number(document.getElementById(`edit-qty-${index}`).value),
-unit: document.getElementById(`edit-unit-${index}`).value
+        name: document.getElementById(`edit-name-${id}`).value,
+        size: document.getElementById(`edit-size-${id}`).value,
+        pRate: Number(document.getElementById(`edit-pRate-${id}`).value),
+        price: Number(document.getElementById(`edit-price-${id}`).value),
+        qty: Number(document.getElementById(`edit-qty-${id}`).value),
+        unit: document.getElementById(`edit-unit-${id}`).value
+    }).then(() => {
+        alert("Stock Updated!");
+        // Optional: renderStock(); call here to refresh the UI
     });
 }
 
