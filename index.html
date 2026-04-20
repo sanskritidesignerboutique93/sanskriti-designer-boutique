@@ -6,6 +6,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
     /* LOGIN SCREEN STYLE */
@@ -85,12 +86,14 @@
 
 <div id="mainAppWrapper">
     <div class="menu">
-        <div class="nav-buttons">
-            <button onclick="showPage('dashboard')">Dashboard</button>
-            <button onclick="showPage('stock')">Add Stock</button>
-            <button onclick="showPage('sales')">Billing</button>
-            <button onclick="showPage('history')">Sales History</button>
-        </div>
+       <div class="nav-buttons">
+    <button onclick="showPage('dashboard')">Dashboard</button>
+    <button onclick="showPage('stock')">Add Stock</button>
+    <button onclick="showPage('sales')">Billing</button>
+    <button onclick="showPage('history')">Sales History</button>
+    <button onclick="showPage('expenses')">Expenses</button>
+    <button onclick="showPage('purchases')">Purchases</button> 
+</div>
         <a href="software2.html" id="switchLink" class="switch-btn">🔄 Switch to Software 2</a>
     </div>
 
@@ -98,11 +101,17 @@
         <h2>Dashboard Overview (Online)</h2>
         <div class="dashboard-grid">
 <hr>
-<div style="background:#fff3e0; padding:15px; border-radius:8px; margin-top:10px;">
-    <h3>GST & Financial Reports</h3>
-    <input type="month" id="reportMonth" style="width: 160px;">
-    <button onclick="exportGSTReport('monthly')" style="background:#673AB7; color:white;">Download Monthly GST</button>
-    <button onclick="exportGSTReport('yearly')" style="background:#3F51B5; color:white;">Download Full FY Report</button>
+<div style="background:#e3f2fd; padding:15px; border-radius:8px; margin-top:10px; border: 1px solid #2196F3;">
+    <h3>📊 Master Financial Report (Excel)</h3>
+    <label style="font-weight:bold;">From Date:</label> 
+    <input type="date" id="reportStartDate" style="padding: 5px; margin-right: 15px; border-radius: 4px;">
+    
+    <label style="font-weight:bold;">To Date:</label> 
+    <input type="date" id="reportEndDate" style="padding: 5px; margin-right: 15px; border-radius: 4px;">
+    
+    <button onclick="exportMasterReport()" style="background:#3F51B5; color:white; padding: 10px 20px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;">
+        📥 Download Master Excel (Sales, Exp, Pur)
+    </button>
 </div>
           <div class="stat-card">
     <h3>Stock Summary (In-Hand)</h3>
@@ -256,6 +265,56 @@ Card: ₹ <span id="todayCardAmt">0</span>
     </div>
 </div>
 
+<div id="purchases" class="section">
+    <h2>Purchase Entry (GST)</h2>
+    <div style="background:#e8f5e9; padding:15px; border-radius:5px; margin-bottom:15px; border:1px solid #4CAF50;">
+        <input type="date" id="purchaseDate">
+        <input type="text" id="purchaseParty" list="partyList" placeholder="Party Name" style="width: 200px;" oninput="fillPartyGSTIN()">
+<datalist id="partyList"></datalist>
+        <input type="text" id="purGSTIN" placeholder="Party GSTIN" style="width: 150px;">
+        <input type="text" id="purchaseBill" placeholder="Bill No." style="width: 120px;"><br>
+        <label>Basic Amount:</label> <input type="number" id="purBasicAmt" oninput="calcPur()">
+        <label>CGST:</label> <input type="number" id="purCGST" oninput="calcPur()" style="width: 80px;">
+        <label>SGST:</label> <input type="number" id="purSGST" oninput="calcPur()" style="width: 80px;">
+        <label>IGST:</label> <input type="number" id="purIGST" oninput="calcPur()" style="width: 80px;">
+        <h3>Total: ₹<span id="purTotal">0.00</span></h3>
+        <button onclick="savePurchase()" style="background:green;color:white;padding:10px 20px;">
+Save Purchase
+</button>
+    </div>
+    <div style="background:#f1f1f1; padding:10px; margin-bottom:10px;">
+        <input type="date" id="expPurStart"> to <input type="date" id="expPurEnd">
+        <button onclick="exportPurchases()" style="background:#217346; color:white;">📥 Export Purchases</button>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Date</th><th>Party</th><th>Bill</th><th>Basic</th><th>GST</th><th>Total</th><th>X</th></tr>
+        </thead>
+        <tbody id="purchaseTable"></tbody>
+    </table>
+</div>
+
+<div id="expenses" class="section">
+    <h2>Daily Expenses</h2>
+    <div style="background:#fff3e0; padding:15px; border-radius:5px; margin-bottom:15px; border:1px solid #ff9800;">
+        <input type="date" id="expDate">
+        <input type="text" id="expDesc" placeholder="Expense Description (e.g. Chai, Rent, Electricity)">
+        <input type="number" id="expAmt" placeholder="Amount ₹">
+        <select id="expMode"><option>CASH</option><option>ONLINE</option></select>
+        <button onclick="saveExpense()" style="background:#e65100; color:white; padding:10px 20px;">Save Expense</button>
+    </div>
+    <div style="background:#f1f1f1; padding:10px; margin-bottom:10px;">
+        <input type="date" id="expExpStart"> to <input type="date" id="expExpEnd">
+        <button onclick="exportExpenses()" style="background:#217346; color:white;">📥 Export Expenses</button>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Date</th><th>Description</th><th>Amount</th><th>Mode</th><th>X</th></tr>
+        </thead>
+        <tbody id="expenseTable"></tbody>
+    </table>
+</div>
+
 <script>
 /* --- FIREBASE CONFIGURATION (From Dry Cleaners) --- */
 const firebaseConfig = {
@@ -273,6 +332,8 @@ var db = firebase.database();
 /* --- APP STATE --- */
 let stock = [];
 let salesHistory = [];
+let expenses = [];
+let purchases = [];
 let bill = [];
 
 /* --- Updated Invoice & FY Logic --- */
@@ -332,6 +393,57 @@ function loadOnlineData() {
     });
 }
 
+db.ref("sanskriti_purchases").on("value", s => {
+    purchases = [];
+
+    s.forEach(c => {
+        let d = c.val();
+        d.id = c.key;
+        purchases.push(d);
+    });
+
+    renderPurchases();
+});
+db.ref("sanskriti_expenses").on("value", s => {
+    expenses = []; s.forEach(c => { let d = c.val(); d.id = c.key; expenses.push(d); });
+    renderExpenses();
+});
+
+function loadPartySuggestions() {
+    let list = document.getElementById("partyList");
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    let uniqueParties = {};
+
+    purchases.forEach(p => {
+        if (p.partyName) {
+            uniqueParties[p.partyName] = p.gstin || "";
+        }
+    });
+
+    for (let party in uniqueParties) {
+        let option = document.createElement("option");
+        option.value = party;
+        list.appendChild(option);
+    }
+}
+
+function fillPartyGSTIN() {
+    let party = document.getElementById("purchaseParty").value.trim().toLowerCase();
+
+    let found = purchases.find(p =>
+        p.partyName &&
+        p.partyName.toLowerCase() === party
+    );
+
+    if (found) {
+        document.getElementById("purGSTIN").value = found.gstin || "";
+    }
+}
+loadPartySuggestions();
+
 /* --- NAVIGATION --- */
 function showPage(p) {
     document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
@@ -339,7 +451,225 @@ function showPage(p) {
     if (p === "dashboard") updateDashboard();
     if (p === "history") renderHistory();
     if (p === "stock") renderStock();
+    if (p === "purchases") renderPurchases();
+    if (p === "expenses") renderExpenses();
     if (p === "sales") setTimeout(() => document.getElementById("barcodeInput").focus(), 100);
+}
+
+
+function calcPur() {
+    let basic = Number(document.getElementById("purBasicAmt").value) || 0;
+    let cgst = Number(document.getElementById("purCGST").value) || 0;
+    let sgst = Number(document.getElementById("purSGST").value) || 0;
+    let igst = Number(document.getElementById("purIGST").value) || 0;
+
+    let total = basic + cgst + sgst + igst;
+
+    document.getElementById("purTotal").innerText = total.toFixed(2);
+}
+
+function savePurchase() {
+    let date = document.getElementById("purchaseDate").value;
+    let party = document.getElementById("purchaseParty").value.trim();
+    let bill = document.getElementById("purchaseBill").value.trim();
+
+    let basic = Number(document.getElementById("purBasicAmt").value) || 0;
+    let cgst = Number(document.getElementById("purCGST").value) || 0;
+    let sgst = Number(document.getElementById("purSGST").value) || 0;
+    let igst = Number(document.getElementById("purIGST").value) || 0;
+
+    let total = basic + cgst + sgst + igst;
+
+    if (!date || !party || !bill) {
+        alert("Date, Party aur Bill No bharo");
+        return;
+    }
+
+
+let gstin = document.getElementById("purGSTIN").value.trim();
+    db.ref("sanskriti_purchases").push({
+        date: date,
+        partyName: party,
+        invoice: bill,
+        gstin: gstin,
+        basicAmt: basic,
+        cgst: cgst,
+        sgst: sgst,
+        igst: igst,
+        total: total
+    }).then(() => {
+        alert("Purchase Saved Successfully!");
+
+        document.getElementById("purchaseParty").value = "";
+    document.getElementById("purGSTIN").value = "";
+    document.getElementById("purchaseBill").value = "";
+    document.getElementById("purBasicAmt").value = "";
+    document.getElementById("purCGST").value = "";
+    document.getElementById("purSGST").value = "";
+    document.getElementById("purIGST").value = "";
+    document.getElementById("purTotal").innerText = "0.00"
+
+    }).catch((error) => {
+        alert("Save Failed : " + error.message);
+    });
+}
+
+function saveExpense() {
+    let desc = document.getElementById("expDesc").value.trim();
+    let amt = Number(document.getElementById("expAmt").value) || 0;
+
+    if (!desc || amt <= 0) {
+        alert("Kripya Detail aur Amount bhariye!");
+        return;
+    }
+
+    db.ref("sanskriti_expenses").push({
+        date: document.getElementById("expDate").value || new Date().toISOString().split('T')[0],
+        desc: desc,
+        amt: amt,
+        mode: document.getElementById("expMode").value
+    }).then(() => {
+        alert("✅ Expense Saved!");
+        
+        // --- Boxes clear ---
+        document.getElementById("expDesc").value = "";
+        document.getElementById("expAmt").value = "";
+        document.getElementById("expMode").value = "CASH";
+        
+    }).catch((error) => {
+        alert("Error: " + error.message);
+    });
+}
+
+function renderExpenses() {
+    let tbody = document.getElementById("expenseTable");
+    if(!tbody) return;
+    tbody.innerHTML = "";
+    [...expenses].reverse().forEach(e => {
+        tbody.innerHTML += `<tr>
+            <td>${formatDate(e.date)}</td>
+            <td>${e.desc}</td>
+            <td>₹${e.amt}</td>
+            <td>${e.mode}</td>
+            <td><button class="btn-delete" onclick="deleteExpense('${e.id}')">X</button></td>
+        </tr>`;
+    });
+}
+
+function renderPurchases() {
+    let tbody = document.getElementById("purchaseTable");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    [...purchases].reverse().forEach(p => {
+
+        let gstTotal =
+            (Number(p.cgst) || 0) +
+            (Number(p.sgst) || 0) +
+            (Number(p.igst) || 0);
+
+        tbody.innerHTML += `
+        <tr>
+            <td>${formatDate(p.date)}</td>
+            <td>${p.partyName || "-"}</td>
+            <td>${p.invoice || "-"}</td>
+            <td>₹${Number(p.basicAmt || 0).toFixed(2)}</td>
+            <td>₹${gstTotal.toFixed(2)}</td>
+            <td><b>₹${Number(p.total || 0).toFixed(2)}</b></td>
+            <td>
+                <button class="btn-delete"
+                onclick="deletePurchase('${p.id}')">X</button>
+            </td>
+        </tr>`;
+    });
+}
+
+function deleteData(path) {
+    if(confirm("Delete karein?")) db.ref(path).remove();
+}
+
+// EXPORT FUNCTIONS
+function exportPurchases() {
+    let s = document.getElementById("expPurStart").value;
+    let e = document.getElementById("expPurEnd").value;
+    
+    if (!s || !e) {
+        alert("Pehle Start aur End Date select karein!");
+        return;
+    }
+
+    // Date-wise sorting logic (Ascending Order)
+    let filtered = purchases
+        .filter(x => x.date >= s && x.date <= e)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (filtered.length === 0) {
+        alert("Is period mein koi data nahi mila!");
+        return;
+    }
+
+    let rows = [["Date", "Party Name", "GSTIN", "Invoice No.", "Basic Amount", "CGST", "SGST", "IGST", "Total Amount"]];
+    
+    filtered.forEach(x => {
+        rows.push([
+            formatDate(x.date), 
+            x.partyName, 
+            x.gstin || "-", 
+            x.invoice || "-", 
+            x.basicAmt.toFixed(2), 
+            x.cgst.toFixed(2), 
+            x.sgst.toFixed(2), 
+            x.igst.toFixed(2), 
+            x.total.toFixed(2)
+        ]);
+    });
+
+    downloadCSV(rows, `Purchase_Report_${s}_to_${e}`);
+}
+
+function exportExpenses() {
+    let s = document.getElementById("expExpStart").value;
+    let e = document.getElementById("expExpEnd").value;
+
+    if (!s || !e) {
+        alert("Pehle Start aur End Date select karein!");
+        return;
+    }
+
+    // Date-wise sorting logic (Ascending Order)
+    let filtered = expenses
+        .filter(x => x.date >= s && x.date <= e)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (filtered.length === 0) {
+        alert("Is period mein koi data nahi mila!");
+        return;
+    }
+
+    let rows = [["Date", "Description", "Amount", "Payment Mode"]];
+    
+    filtered.forEach(x => {
+        rows.push([
+            formatDate(x.date), 
+            x.desc, 
+            x.amt.toFixed(2), 
+            x.mode || "CASH"
+        ]);
+    });
+
+    downloadCSV(rows, `Expense_Report_${s}_to_${e}`);
+}
+
+function downloadCSV(rows, filename) {
+    let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    let encodedUri = encodeURI(csvContent);
+    let link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 /* --- DASHBOARD LOGIC --- */
@@ -540,16 +870,24 @@ function editRow(id) {
 }
 
 function saveRow(id) {
+let newPRate = Number(document.getElementById(`edit-pRate-${id}`).value);
+    let item = stock.find(s => s.id === id);
+    
+    // Naya barcode generate karein (Prefix + Random + New P.Rate)
+    // Hum purana prefix use karenge jo item mein pehle se save hai
+    let newBarcode = item.prefix + Math.floor(100000 + Math.random() * 900000) + newPRate;
+
     db.ref("sanskriti_stock/" + id).update({
         name: document.getElementById(`edit-name-${id}`).value,
         size: document.getElementById(`edit-size-${id}`).value,
-        pRate: Number(document.getElementById(`edit-pRate-${id}`).value),
+        pRate: newPRate,
+        barcode: newBarcode, // Yeh line naya barcode save karegi
         price: Number(document.getElementById(`edit-price-${id}`).value),
         qty: Number(document.getElementById(`edit-qty-${id}`).value),
         unit: document.getElementById(`edit-unit-${id}`).value
     }).then(() => {
-        alert("Stock Updated!");
-        // Optional: renderStock(); call here to refresh the UI
+        alert("Stock & Barcode Updated!");
+        renderStock(); // Table ko refresh karein naye barcode ke saath
     });
 }
 
@@ -1088,6 +1426,28 @@ function clearAllData() {
         alert("Wrong Password! Data not cleared.");
     }
 }
+
+
+/* --- DELETE WITH PASSWORD LOGIC --- */
+
+function deletePurchase(id) {
+    let ask = prompt("Security Check: Admin Password dalein:");
+    if (ask === "Amit@2024") {
+        if (confirm("Delete karein?")) {
+            db.ref("sanskriti_purchases/" + id).remove();
+        }
+    } else if (ask !== null) {
+        alert("Galat Password!");
+    }
+}
+
+function deleteExpense(id) {
+    let ask = prompt("Security Check: Admin Password dalein:");
+    if (ask === "Amit@2024") {
+        if (confirm("Delete karein?")) db.ref("sanskriti_expenses/" + id).remove();
+    } else if (ask !== null) { alert("Galat Password!"); }
+}
+
 
 
 </script>
