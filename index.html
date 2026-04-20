@@ -1447,8 +1447,93 @@ function deleteExpense(id) {
         if (confirm("Delete karein?")) db.ref("sanskriti_expenses/" + id).remove();
     } else if (ask !== null) { alert("Galat Password!"); }
 }
+function exportMasterReport() {
+    let sDate = document.getElementById("reportStartDate").value;
+    let eDate = document.getElementById("reportEndDate").value;
 
+    if (!sDate || !eDate) {
+        alert("Kripya Start Date aur End Date dono select karein!");
+        return;
+    }
 
+    if (typeof XLSX === 'undefined') {
+        alert("Excel export library load nahi hui hai. Kripya apna Internet connection check karein aur page refresh karein.");
+        return;
+    }
+
+    // 1. --- SALES DATA (SHEET 1) ---
+    // Sales mein date ISO format mein hoti hai, isliye split('T')[0] karke date nikalna zaruri hai
+    let filteredSales = salesHistory
+        .filter(x => x.date && x.date.split('T')[0] >= sDate && x.date.split('T')[0] <= eDate)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let salesRows = [["Date", "Invoice No.", "Customer", "Mobile", "Payment Mode", "Total Amount"]];
+    filteredSales.forEach(sale => {
+        let pMode = sale.paymentMode === "Split" ? `Cash: ₹${sale.splitDetails?.cash || 0} | Online: ₹${sale.splitDetails?.online || 0}` : sale.paymentMode;
+        salesRows.push([
+            formatDate(sale.date),
+            sale.invoice,
+            sale.customer || "Cash",
+            sale.mobile || "-",
+            pMode,
+            sale.total
+        ]);
+    });
+
+    // 2. --- EXPENSES DATA (SHEET 2) ---
+    let filteredExpenses = expenses
+        .filter(x => x.date >= sDate && x.date <= eDate)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let expenseRows = [["Date", "Description", "Payment Mode", "Amount"]];
+    filteredExpenses.forEach(exp => {
+        expenseRows.push([
+            formatDate(exp.date),
+            exp.desc,
+            exp.mode || "CASH",
+            exp.amt
+        ]);
+    });
+
+    // 3. --- PURCHASES DATA (SHEET 3) ---
+    let filteredPurchases = purchases
+        .filter(x => x.date >= sDate && x.date <= eDate)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Yahan Header mein "GSTIN" add kiya gaya hai 👇
+    let purchaseRows = [["Date", "Party Name", "GSTIN", "Invoice No.", "Basic Amount", "CGST", "SGST", "IGST", "Total Amount"]];
+    
+    filteredPurchases.forEach(p => {
+        purchaseRows.push([
+            formatDate(p.date),
+            p.partyName || "-",
+            p.gstin || "-",       // Yahan GSTIN ka data map kiya gaya hai 👇
+            p.invoice || "-",
+            Number(p.basicAmt || 0),
+            Number(p.cgst || 0),
+            Number(p.sgst || 0),
+            Number(p.igst || 0),
+            Number(p.total || 0)
+        ]);
+    });
+
+    // --- EXCEL WORKBOOK BANANA AUR SHEETS ADD KARNA ---
+    let wb = XLSX.utils.book_new();
+
+    // Arrays ko worksheets mein convert karna
+    let wsSales = XLSX.utils.aoa_to_sheet(salesRows);
+    let wsExpenses = XLSX.utils.aoa_to_sheet(expenseRows);
+    let wsPurchases = XLSX.utils.aoa_to_sheet(purchaseRows);
+
+    // Sheets ko workbook ke andar append karna (Sheet1, Sheet2, Sheet3)
+    XLSX.utils.book_append_sheet(wb, wsSales, "1. Sales");
+    XLSX.utils.book_append_sheet(wb, wsExpenses, "2. Expenses");
+    XLSX.utils.book_append_sheet(wb, wsPurchases, "3. Purchases");
+
+    // File download karwana
+    let fileName = `Master_Report_${sDate}_to_${eDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+}
 
 </script>
 </body>
