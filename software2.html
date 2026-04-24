@@ -1304,61 +1304,79 @@ function exportGSTReport() {
 }
 
 function exportBarcodeOnlyReport() {
-    // Excel ke headers set karein
-    let rows = [["Date", "Bill No", "Customer Name", "Item Name", "Barcode", "Qty", "Price", "Discount", "Item Total (₹)"]];
-    let totalBarcodeSales = 0;
+    try {
+        // Excel ke headers set karein
+        let rows = [["Date", "Bill No", "Customer Name", "Item Name", "Barcode", "Qty", "Price", "Discount", "Item Total (₹)"]];
+        let totalBarcodeSales = 0;
 
-    // Saare bills ko array mein convert karke sort karein
-    let billsArray = Object.keys(localBillsData)
-        .filter(k => k.startsWith('bill_'))
-        .map(key => localBillsData[key]);
-    
-    billsArray.sort((a, b) => a.id - b.id);
-
-    let barcodeItemFound = false;
-
-    // Har bill ke andar ke items ko check karein
-    billsArray.forEach(bill => {
-        if (bill.items && Array.isArray(bill.items)) {
-            bill.items.forEach(item => {
-                // Sirf wahi item pick karein jisme barcode value ho
-                if (item.barcode && item.barcode.trim() !== "") {
-                    barcodeItemFound = true;
-                    let itemTotal = (Number(item.worth) || 0) - (Number(item.disc) || 0);
-                    
-                    rows.push([
-                        cleanDate(bill.date), // Bill ki date
-                        bill.id,              // Bill number
-                        bill.name,            // Customer ka naam
-                        item.name,            // Product ka naam
-                        item.barcode,         // Barcode number
-                        item.qty,             // Quantity
-                        item.worth,           // Base Price
-                        item.disc,            // Discount
-                        itemTotal             // Final Amount
-                    ]);
-                    
-                    totalBarcodeSales += itemTotal;
-                }
-            });
+        // Check if database has loaded bills
+        if (!localBillsData || Object.keys(localBillsData).length === 0) {
+            alert("Database mein abhi koi records nahi hain ya load ho raha hai. Kripya thoda wait karein.");
+            return;
         }
-    });
 
-    if (!barcodeItemFound) {
-        alert("Abhi tak database mein koi bhi barcode scanned item nahi mila!");
-        return;
+        // Saare bills ko array mein convert karke sort karein
+        let billsArray = Object.keys(localBillsData)
+            .filter(k => k.startsWith('bill_'))
+            .map(key => localBillsData[key]);
+        
+        billsArray.sort((a, b) => (a.id || 0) - (b.id || 0));
+
+        let barcodeItemFound = false;
+
+        // Har bill ke andar ke items ko check karein
+        billsArray.forEach(bill => {
+            if (bill && bill.items && Array.isArray(bill.items)) {
+                bill.items.forEach(item => {
+                    // Sirf wahi item pick karein jisme barcode value ho (Empty string handle kiya gaya)
+                    if (item.barcode && String(item.barcode).trim() !== "") {
+                        barcodeItemFound = true;
+                        
+                        let w = Number(item.worth) || 0;
+                        let d = Number(item.disc) || 0;
+                        let itemTotal = w - d;
+                        
+                        rows.push([
+                            cleanDate(bill.date || "N/A"), // Bill ki date
+                            bill.id || "N/A",              // Bill number
+                            bill.name || "Walk-In",        // Customer ka naam
+                            item.name || "Unknown Item",   // Product ka naam
+                            item.barcode,                  // Barcode number
+                            item.qty || 0,                 // Quantity
+                            w,                             // Base Price
+                            d,                             // Discount
+                            itemTotal                      // Final Amount
+                        ]);
+                        
+                        totalBarcodeSales += itemTotal;
+                    }
+                });
+            }
+        });
+
+        if (!barcodeItemFound) {
+            alert("Abhi tak database mein koi bhi barcode scanned item nahi mila! Kripya dhyan dein ki sirf Scanner se add kiye items is report mein aayenge.");
+            return;
+        }
+
+        // Aakhir mein Grand Total ki ek row add karein
+        rows.push(["", "", "", "", "", "", "", "GRAND TOTAL", totalBarcodeSales]);
+
+        // Excel file generate aur download karein
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Barcode_Sales");
+        
+        // Date Format fix (DD-MM-YYYY format ke liye)
+        let today = new Date();
+        let formattedDate = today.getDate() + "-" + (today.getMonth() + 1) + "-" + today.getFullYear();
+        
+        XLSX.writeFile(wb, `Sanskriti_Barcode_Sales_${formattedDate}.xlsx`);
+
+    } catch (error) {
+        console.error("Barcode Report Error:", error);
+        alert("Report generate karne mein error aayi: " + error.message);
     }
-
-    // Aakhir mein Grand Total ki ek row add karein
-    rows.push(["", "", "", "", "", "", "", "GRAND TOTAL", totalBarcodeSales]);
-
-    // Excel file generate aur download karein
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Barcode_Sales");
-    
-    let today = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `Sanskriti_Barcode_Sales_${today}.xlsx`);
 }
 
 // Cancel function with Password Protection
