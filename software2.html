@@ -92,6 +92,7 @@
         <button class="btn-load" style="background:#1f7244; margin-left:10px;" onclick="exportDataToExcel()">📥 EXCEL</button>
         <button class="btn-load" style="background:#2980b9; margin-left: 10px;" onclick="exportGSTReport()">📊 GST REPORT</button>
         <button class="btn-load" style="background:#e67e22; margin-left: 10px;" onclick="exportFinancialReport()">📈 FINANCE REPORT</button>
+<button onclick="exportBarcodeOnlyReport()" style="background: #eb4d4b; color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px;">📦 Barcode Sales Report</button>
         <button class="btn-load" style="background:#dc2626;" onclick="promptCancel()">❌ CANCEL</button>
     </div>
     
@@ -118,20 +119,27 @@
 </div>
 
         <div class="section-bar">
+<div style="margin-bottom: 15px; text-align: center;">
+    <input type="text" id="barcodeScanner" placeholder="🔍 SCAN BARCODE HERE..." style="width: 80%; max-width: 400px; padding: 12px; border: 2px solid var(--dark); border-radius: 5px; font-weight: bold; font-size: 16px; background: #fffde7;" autofocus>
+</div>
             <span>👗 ITEMS LIST</span>
             <span id="totalPcsHead">Total Pcs: 0</span>
         </div>
         <table>
             <thead><tr><th>Particulars</th><th width="80">Qty</th><th width="120">Price (₹)</th><th width="120">Discount (₹)</th><th width="40"></th></tr></thead>
             <tbody id="itemRows">
-                <tr>
-                    <td><input type="text" list="masterList" class="p-name" oninput="updateDeliveryDropdown()"></td>
-                    <td><input type="number" class="p-qty" value="1" oninput="calculate(); updateDeliveryDropdown();"></td>
-                    <td><input type="number" class="p-worth" value="0" oninput="calculate()"></td>
-                    <td><input type="number" class="p-disc" value="0" oninput="calculate()"></td>
-                    <td></td>
-                </tr>
-            </tbody>
+    <tr>
+        <td>
+            <input type="text" list="masterList" class="p-name" oninput="updateDeliveryDropdown()">
+            <input type="hidden" class="p-barcode" value="">
+            <input type="hidden" class="p-stock-id" value="">
+        </td>
+        <td><input type="number" class="p-qty" value="1" oninput="calculate(); updateDeliveryDropdown();"></td>
+        <td><input type="number" class="p-worth" value="0" oninput="calculate()"></td>
+        <td><input type="number" class="p-disc" value="0" oninput="calculate()"></td>
+        <td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td>
+    </tr>
+</tbody>
         </table>
         <button class="btn-load" style="margin-top:10px; background:#6c757d;" onclick="addRow()">+ ADD ITEM</button>
 
@@ -310,19 +318,103 @@
     var db = firebase.database();
 
     // -------------------------------------------------------------------------
-    // GLOBAL VARIABLES (In-Memory Database Sync)
-    // -------------------------------------------------------------------------
-    let localBillsData = {}; // Saare bills Cloud se yaha sync honge
+    // --- GLOBAL VARIABLES ---
+    let localBillsData = {}; 
     let masterItems = ["KURTA", "SUIT", "LEHENGA", "BLOUSE", "PANT"];
     let currentPayments = [], currentDeliveries = [];
     let billNumber = 2951;
+    let stock = []; // Stock data yahan store hoga
 
+    // --- SCANNER LOGIC FUNCTION ---
+    function addScannedItem(code) {
+        let item = stock.find(i => i.barcode === code);
+        if (!item) {
+            alert("❌ Barcode Stock mein nahi mila!");
+            return;
+        }
+
+        let currentStockQty = Number(item.qty || 0);
+        if (currentStockQty <= 0) {
+            alert("⚠️ Out of Stock! '" + item.name + "' khatam ho gaya hai.");
+            return;
+        }
+
+        let found = false;
+        document.querySelectorAll('#itemRows tr').forEach(r => {
+            let barcodeInput = r.querySelector('.p-barcode');
+            if(barcodeInput && barcodeInput.value === code) {
+                let qtyInput = r.querySelector('.p-qty');
+                let newQty = Number(qtyInput.value) + 1;
+                if(newQty > currentStockQty) {
+                    alert("⚠️ Stock mein sirf " + currentStockQty + " hi hain.");
+                } else {
+                    qtyInput.value = newQty;
+                    r.querySelector('.p-worth').value = Number(item.price) * newQty;
+                    found = true;
+                    calculate();
+                }
+                found = true;
+            }
+        });
+
+        if (!found) {
+            let emptyRow = Array.from(document.querySelectorAll('#itemRows tr')).find(r => r.querySelector('.p-name').value.trim() === "");
+            let unitTag = item.category ? ` (${item.category})` : "";
+            let itemName = item.name + unitTag;
+
+            if (emptyRow) {
+                emptyRow.querySelector('.p-name').value = itemName;
+                emptyRow.querySelector('.p-qty').value = 1;
+                emptyRow.querySelector('.p-worth').value = item.price;
+                
+                // Hidden inputs set karna
+                let td = emptyRow.querySelector('td');
+                td.querySelector('.p-barcode').value = item.barcode;
+                td.querySelector('.p-stock-id').value = item.id;
+            } else {
+                let tr = `<tr>
+                    <td>
+                        <input type="text" class="p-name" value="${itemName}">
+                        <input type="hidden" class="p-barcode" value="${item.barcode}">
+                        <input type="hidden" class="p-stock-id" value="${item.id}">
+                    </td>
+                    <td><input type="number" class="p-qty" value="1" oninput="calculate()"></td>
+                    <td><input type="number" class="p-worth" value="${item.price}" oninput="calculate()"></td>
+                    <td><input type="number" class="p-disc" value="0" oninput="calculate()"></td>
+                    <td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td>
+                </tr>`;
+                document.getElementById('itemRows').insertAdjacentHTML('beforeend', tr);
+            }
+            calculate();
+        }
+    }
     function cleanDate(d) { if(!d) return "N/A"; let pts = d.split('-'); return pts.length === 3 ? `${pts[2]}/${pts[1]}/${pts[0]}` : d; }
 
     window.onload = () => {
-        document.getElementById('bookingDate').valueAsDate = new Date();
-        document.getElementById('kistDate').valueAsDate = new Date();
-        document.getElementById('devDate').valueAsDate = new Date();
+        // ... purani dates waali lines ...
+        
+        // --- 1. Stock Sync ---
+        db.ref("sanskriti_stock").on("value", (snap) => {
+            stock = [];
+            snap.forEach(child => { 
+                let d = child.val(); 
+                d.id = child.key; 
+                stock.push(d); 
+            });
+        });
+
+        // --- 2. Scanner Input Listener ---
+        let scanner = document.getElementById("barcodeScanner");
+        if(scanner) {
+            scanner.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    addScannedItem(scanner.value.trim());
+                    scanner.value = "";
+                }
+            });
+        }
+        
+        // ... baaki ka window.onload code ..
         
         // 1. App load hone par ek baar database se details nikalna (For UI setup)
         db.ref("sanskriti_data").once("value", (snapshot) => {
@@ -369,128 +461,134 @@ if (!document.getElementById('fy-span')) {
         }
     }
 
-function saveBill() {
-        updateManualBillNo(); 
+async function saveBill() {
+    updateManualBillNo(); 
 
-        let bDate = document.getElementById('bookingDate').value;
-        let name = document.getElementById('custName').value.trim();
-        let mob = document.getElementById('custMob').value.trim();
-        let address = document.getElementById('custAddress').value.trim();
- 
+    let bDate = document.getElementById('bookingDate').value;
+    let name = document.getElementById('custName').value.trim();
+    let mob = document.getElementById('custMob').value.trim();
+    let address = document.getElementById('custAddress').value.trim();
 
-        if(!name || mob.length < 10) return alert("Enter Customer Name and valid Mobile Number");
+    if(!name || mob.length < 10) return alert("Enter Customer Name and valid Mobile Number");
 
-        let items = Array.from(document.querySelectorAll('#itemRows tr')).map(r => ({
-            name: r.querySelector('.p-name').value,
-            qty: r.querySelector('.p-qty').value,
-            worth: r.querySelector('.p-worth').value,
-            disc: r.querySelector('.p-disc').value
-        })).filter(i => i.name);
+    // --- Data Collection ---
+    let items = Array.from(document.querySelectorAll('#itemRows tr')).map(r => ({
+        name: r.querySelector('.p-name').value,
+        qty: r.querySelector('.p-qty').value,
+        worth: r.querySelector('.p-worth').value,
+        disc: r.querySelector('.p-disc').value,
+        barcode: r.querySelector('.p-barcode') ? r.querySelector('.p-barcode').value : "",
+        stockId: r.querySelector('.p-stock-id') ? r.querySelector('.p-stock-id').value : ""
+    })).filter(i => i.name);
 
-        let subtotal = items.reduce((s, i) => s + Number(i.worth), 0);
-let steamPressAmt = 0;
-        let sareeFallAmt = 0;
-        let stitchingAmt = 0;
+    // --- Calculations ---
+    let subtotal = items.reduce((s, i) => s + Number(i.worth), 0);
+    let totalDisc = items.reduce((s, i) => s + Number(i.disc), 0);
+    let steamPressAmt = 0;
+    let sareeFallAmt = 0;
+    let stitchingAmt = 0;
 
+    items.forEach(i => {
+        let amt = (Number(i.worth) || 0) - (Number(i.disc) || 0);
+        let itemName = i.name.toUpperCase();
+        if (itemName.includes("(SP)")) { steamPressAmt += amt; } 
+        else if (itemName.includes("SAREEFALL")) { sareeFallAmt += amt; } 
+        else { stitchingAmt += amt; }
+    });
+
+    let grandTotal = subtotal - totalDisc;
+    let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
+    let bal = grandTotal - paid;
+    let totalPcs = items.reduce((s, i) => s + Number(i.qty), 0);
+    let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
+    let pendingPcs = totalPcs - devPcs;
+
+    let samplePcs = items.reduce((s, i) => (i.name && i.name.toUpperCase().includes("(SAMPLE)")) ? s + Number(i.qty) : s, 0);
+    let normalPcs = totalPcs - samplePcs;
+
+    // --- Full WhatsApp Message Build ---
+    let fy = getFinancialYear();
+    let msg = `*SANSKRITI*\n---------------------------\n`;
+    msg += `*Bill No :* ${billNumber} / ${fy}\n`;
+    msg += `*Date :* ${cleanDate(bDate)}\n*${name}*\n${mob}\n`;
+    if(address) msg += `${address}\n`;
+    msg += `---------------------------\n`;
+    msg += `*Sub Total :* Rs ${subtotal}\n*Discount :* Rs ${totalDisc}\n*Grand Total :* Rs ${grandTotal}\n`;
+    msg += `*Recd Amount :* Rs ${paid}\n*Balance Amount :* Rs ${bal}\n\n`;
+    msg += `*Stitching Total:* Rs ${stitchingAmt}\n*Steam Press Total:* Rs ${steamPressAmt}\n*Saree Fall Total:* Rs ${sareeFallAmt}\n\n`;
+
+    msg += `*Payment History :*\n`;
+    if(currentPayments.length > 0) {
+        currentPayments.forEach(p => { msg += ` - ${cleanDate(p.date)} : Rs ${p.amount} (${p.mode})\n`; });
+    } else { msg += ` - No payments recorded\n`; }
+
+    msg += `\n*Inventory Status:*\nNormal : ${normalPcs}\nSample : ${samplePcs}\nTotal Pcs : ${totalPcs}\nDelivered : ${devPcs}\nRemaining : ${pendingPcs}\n\n`;
+
+    msg += `*Delivery Record:*\n`;
+    if(currentDeliveries.length > 0) {
+        currentDeliveries.forEach(d => { msg += ` - ${cleanDate(d.date)}: ${d.qty} Pcs - ${d.item}\n`; });
+    } else { msg += ` - No deliveries recorded\n`; }
+    
+    msg += `*Expected Delivery :* ${cleanDate(document.getElementById('delDate').value)}\n`;
+    msg += `---------------------------\n*Thank you!*`;
+
+    // --- Save Logic ---
+    const billData = { 
+        id: billNumber, date: bDate, name: name, mob: mob, address: address,
+        items: items, payments: currentPayments, deliveries: currentDeliveries,
+        delDate: document.getElementById('delDate').value 
+    };
+
+    try {
+        // ✅ BUG FIX: Pehle purane bill ka data capture karein (Firebase Save hone se pehle)
+        let oldBill = localBillsData['bill_' + billNumber];
+        let oldStockUsage = {};
+        if (oldBill && oldBill.items) {
+            oldBill.items.forEach(i => { 
+                if (i.stockId) oldStockUsage[i.stockId] = (oldStockUsage[i.stockId] || 0) + Number(i.qty || 0); 
+            });
+        }
+
+        // 1. Firebase Save
+        await db.ref('sanskriti_data/bills/bill_' + billNumber).set(billData);
+
+        // 2. Stock Update (Correct Logic)
         items.forEach(i => {
-            let amt = (Number(i.worth) || 0) - (Number(i.disc) || 0);
-            let itemName = i.name.toUpperCase();
-
-            if (itemName.includes("(SP)")) {
-                steamPressAmt += amt;
-            } else if (itemName.includes("SAREEFALL")) {
-                sareeFallAmt += amt;
-            } else {
-                stitchingAmt += amt;
-            }
-});
-        let totalDisc = items.reduce((s, i) => s + Number(i.disc), 0);
-        let grandTotal = subtotal - totalDisc;
-        let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
-        let bal = grandTotal - paid;
-        
-        let totalPcs = items.reduce((s, i) => s + Number(i.qty), 0);
-        let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
-        let pendingPcs = totalPcs - devPcs;
-
-        // Logic for SAMPLE and NORMAL PCS
-        let samplePcs = items.reduce((s, i) => (i.name && i.name.toUpperCase().includes("(SAMPLE)")) ? s + Number(i.qty) : s, 0);
-        let normalPcs = 
-             totalPcs - 
-             samplePcs;
-let fy = getFinancialYear();
-        let msg = `*SANSKRITI*\n`;
-        msg += `---------------------------\n`;
-        msg += `*Bill No :* ${billNumber} / ${fy}\n`; // Is line ko update karein
-        msg += `*Date :* ${cleanDate(bDate)}\n`;
-        msg += `*${name}*\n`; 
-        msg += `${mob}\n`;
-        
-        if(address) {
-            msg += `${address}\n`; 
-        }
-
-        msg += `---------------------------\n`;
-        msg += `*Sub Total :* Rs ${subtotal}\n`;
-        msg += `*Discount :* Rs ${totalDisc}\n`;
-        msg += `*Grand Total :* Rs ${grandTotal}\n`;
-        msg += `*Recd Amount :* Rs ${paid}\n`;
-        msg += `*Balance Amount :* Rs ${bal}\n\n`;
-        msg += `*Stitching Total:* Rs ${stitchingAmt}\n`;
-        msg += `*Steam Press Total:* Rs ${steamPressAmt}\n`;
-        msg += `*Saree Fall Total:* Rs ${sareeFallAmt}\n\n`;
-
-        msg += `*Payment History :*\n`;
-        if(currentPayments.length > 0) {
-            currentPayments.forEach(p => {
-                msg += ` - ${cleanDate(p.date)} : Rs ${p.amount} (${p.mode})\n`;
-            });
-        } else { msg += ` - No payments recorded\n`; }
-
-        // WhatsApp Inventory Status Format
-        msg += `\n*Inventory Status:*\n`;
-msg += `Normal : ${normalPcs}\n`;
-msg += `Sample : ${samplePcs}\n`;
-msg += `Total Pcs : ${totalPcs}\n`;
-msg += `Delivered : ${devPcs}\n`;
-msg += `Remaining : ${pendingPcs}\n\n`;
-
-        msg += `*Delivery Record:*\n`;
-        if(currentDeliveries.length > 0) {
-            currentDeliveries.forEach(d => {
-                msg += ` - ${cleanDate(d.date)}: ${d.qty} Pcs - ${d.item}\n`;
-            });
-        } else { 
-            msg += ` - No deliveries recorded\n`; 
-        }
-        
-        msg += `*Expected Delivery :* ${cleanDate(document.getElementById('delDate').value)}\n`;
-        msg += `---------------------------\n`;
-        msg += `*Thank you!*`;
-
-        const billData = { 
-            id: billNumber,
-            date : bDate, 
-            name : name, 
-            mob : mob, 
-            address : address,
-            items : items, 
-            payments : currentPayments, 
-            deliveries : currentDeliveries, 
-            delDate : document.getElementById('delDate').value 
-        };
-        
-        window.open(`https://wa.me/91${mob}?text=${encodeURIComponent(msg)}`, '_blank');
-
-        db.ref('sanskriti_data/lastBillNo').set(billNumber);
-        db.ref('sanskriti_data/bills/bill_' + billNumber).set(billData, (error) => {
-            if(error) {
-                alert("Error saving to Cloud: " + error.message);
-            } else {
-                location.reload(); 
+            if (i.stockId) {
+                let oldQ = oldStockUsage[i.stockId] || 0;
+                let diff = Number(i.qty) - oldQ;
+                let si = stock.find(s => s.id === i.stockId);
+                if (si && diff !== 0) {
+                    db.ref("sanskriti_stock/" + i.stockId).update({ qty: Number(si.qty) - diff });
+                }
             }
         });
+
+        // 3. WhatsApp Open
+        window.open(`https://wa.me/91${mob}?text=${encodeURIComponent(msg)}`, '_blank');
+
+        // 4. Update Bill Number for next bill
+        billNumber++;
+        await db.ref('sanskriti_data/lastBillNo').set(billNumber);
+        document.getElementById('displayBillNo').value = billNumber;
+
+        // 5. UI Reset 
+        document.getElementById('custName').value = "";
+        document.getElementById('custMob').value = "";
+        document.getElementById('custAddress').value = "";
+        document.getElementById('itemRows').innerHTML = "";
+        currentPayments = [];
+        currentDeliveries = [];
+        addRow();
+        calculate();
+
+        alert("Bill Saved Successfully!");
+
+  } catch (e) {
+        console.error(e);
+        alert("Error: " + e.message);
     }
+} // ✅ YA
 
     function sendDueReminder(name, mob, balance, billId) {
         let msg = `*SANSKRITI - Payment Reminder*\n`;
@@ -531,9 +629,19 @@ msg += `Remaining : ${pendingPcs}\n\n`;
     function removeFromMaster(idx) { masterItems.splice(idx, 1); renderMaster(); }
 
     function addRow() {
-        let tr = `<tr><td><input type="text" list="masterList" class="p-name" oninput="updateDeliveryDropdown()"></td><td><input type="number" class="p-qty" value="1" oninput="calculate(); updateDeliveryDropdown();"></td><td><input type="number" class="p-worth" value="0" oninput="calculate()"></td><td><input type="number" class="p-disc" value="0" oninput="calculate()"></td><td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td></tr>`;
-        document.getElementById('itemRows').insertAdjacentHTML('beforeend', tr);
-    }
+    let tr = `<tr>
+        <td>
+            <input type="text" list="masterList" class="p-name" oninput="updateDeliveryDropdown()">
+            <input type="hidden" class="p-barcode" value="">
+            <input type="hidden" class="p-stock-id" value="">
+        </td>
+        <td><input type="number" class="p-qty" value="1" oninput="calculate(); updateDeliveryDropdown();"></td>
+        <td><input type="number" class="p-worth" value="0" oninput="calculate()"></td>
+        <td><input type="number" class="p-disc" value="0" oninput="calculate()"></td>
+        <td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td>
+    </tr>`;
+    document.getElementById('itemRows').insertAdjacentHTML('beforeend', tr);
+}
 
     function updateDeliveryDropdown() {
         let select = document.getElementById('devItemName');
@@ -588,23 +696,62 @@ msg += `Remaining : ${pendingPcs}\n\n`;
     }
 
     function calculate() {
-        let worth = 0, pcs = 0, discTotal = 0;
-        document.querySelectorAll('#itemRows tr').forEach(r => {
-            pcs += Number(r.querySelector('.p-qty').value);
-            worth += Number(r.querySelector('.p-worth').value);
-            discTotal += Number(r.querySelector('.p-disc').value);
-        });
-        let grand = worth - discTotal;
-        let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
-        let dev = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
-        document.getElementById('txtSubTotal').innerText = worth;
-        document.getElementById('txtTotalDisc').innerText = discTotal;
-        document.getElementById('txtBal').innerText = grand - paid;
-        document.getElementById('stTotalPcs').innerText = pcs;
-        document.getElementById('stDevPcs').innerText = dev;
-        document.getElementById('stRemPcs').innerText = pcs - dev;
-        document.getElementById('totalPcsHead').innerText = "Total Pcs: " + pcs;
-    }
+    let subtotal = 0;
+    let totalDisc = 0;
+    let totalPcs = 0;
+
+    // Har row se data nikalna
+    document.querySelectorAll('#itemRows tr').forEach(tr => {
+        let nameInput = tr.querySelector('.p-name');
+        let name = nameInput ? nameInput.value.trim().toUpperCase() : "";
+        
+        let qty = Number(tr.querySelector('.p-qty').value) || 0;
+        let worth = Number(tr.querySelector('.p-worth').value) || 0;
+        let disc = Number(tr.querySelector('.p-disc').value) || 0;
+        
+        // Barcode check karna (Scanned vs Manual pehchanne ke liye)
+        let barcodeInput = tr.querySelector('.p-barcode');
+        let barcode = barcodeInput ? barcodeInput.value.trim() : "";
+
+        subtotal += worth;
+        totalDisc += disc;
+
+        if (name !== "") {
+            if (barcode !== "") {
+                // LOGIC: Agar item Scanner se aaya hai (Barcode maujood hai)
+                // Toh check karo ki naam mein LATKAN ya FABRIC toh nahi hai
+                if (!name.includes("LATKAN") && !name.includes("FABRIC")) {
+                    totalPcs += qty; // Sirf readymade count hoga
+                }
+            } else {
+                // LOGIC: Agar item Manual type kiya gaya hai (Barcode khali hai)
+                // Isko hamesha Pieces mein jodein
+                totalPcs += qty;
+            }
+        }
+    });
+
+    // Payments ka total
+    let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
+    let grandTotal = subtotal - totalDisc;
+    let balance = grandTotal - paid;
+
+    // UI Summary update karna
+    document.getElementById('txtSubTotal').innerText = subtotal;
+    document.getElementById('txtTotalDisc').innerText = totalDisc;
+    document.getElementById('txtBal').innerText = balance;
+    
+    // Pieces Status update karna
+    let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
+    let pendingPcs = totalPcs - devPcs;
+
+    document.getElementById('stTotalPcs').innerText = totalPcs;
+    document.getElementById('stDevPcs').innerText = devPcs;
+    document.getElementById('stRemPcs').innerText = pendingPcs;
+    
+    // Top header pcs update
+    document.getElementById('totalPcsHead').innerText = "Total Pcs: " + totalPcs;
+}
 
     function printReceipt() {
     document.body.className = "printing-receipt";
@@ -691,7 +838,17 @@ document.getElementById('p-billid').innerText = billNumber + " / " + fy;
         document.getElementById('custMob').value = d.mob;
         document.getElementById('custAddress').value = d.address;
         document.getElementById('delDate').value = d.delDate || "";
-        document.getElementById('itemRows').innerHTML = d.items.map(i => `<tr><td><input type="text" list="masterList" class="p-name" value="${i.name}"></td><td><input type="number" class="p-qty" value="${i.qty}" oninput="calculate();"></td><td><input type="number" class="p-worth" value="${i.worth}" oninput="calculate();"></td><td><input type="number" class="p-disc" value="${i.disc || 0}" oninput="calculate();"></td><td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td></tr>`).join('');
+        document.getElementById('itemRows').innerHTML = d.items.map(i => `<tr>
+    <td>
+        <input type="text" list="masterList" class="p-name" value="${i.name}">
+        <input type="hidden" class="p-barcode" value="${i.barcode || ''}">
+        <input type="hidden" class="p-stock-id" value="${i.stockId || ''}">
+    </td>
+    <td><input type="number" class="p-qty" value="${i.qty}" oninput="calculate();"></td>
+    <td><input type="number" class="p-worth" value="${i.worth}" oninput="calculate();"></td>
+    <td><input type="number" class="p-disc" value="${i.disc || 0}" oninput="calculate();"></td>
+    <td class="no-print"><button class="btn-remove" onclick="this.closest('tr').remove();calculate();">×</button></td>
+</tr>`).join('');
         currentPayments = d.payments || []; currentDeliveries = d.deliveries || [];
         updateDeliveryDropdown(); renderKists(); renderDeliveries(); calculate();
     }
@@ -1146,6 +1303,64 @@ function exportGSTReport() {
     }
 }
 
+function exportBarcodeOnlyReport() {
+    // Excel ke headers set karein
+    let rows = [["Date", "Bill No", "Customer Name", "Item Name", "Barcode", "Qty", "Price", "Discount", "Item Total (₹)"]];
+    let totalBarcodeSales = 0;
+
+    // Saare bills ko array mein convert karke sort karein
+    let billsArray = Object.keys(localBillsData)
+        .filter(k => k.startsWith('bill_'))
+        .map(key => localBillsData[key]);
+    
+    billsArray.sort((a, b) => a.id - b.id);
+
+    let barcodeItemFound = false;
+
+    // Har bill ke andar ke items ko check karein
+    billsArray.forEach(bill => {
+        if (bill.items && Array.isArray(bill.items)) {
+            bill.items.forEach(item => {
+                // Sirf wahi item pick karein jisme barcode value ho
+                if (item.barcode && item.barcode.trim() !== "") {
+                    barcodeItemFound = true;
+                    let itemTotal = (Number(item.worth) || 0) - (Number(item.disc) || 0);
+                    
+                    rows.push([
+                        cleanDate(bill.date), // Bill ki date
+                        bill.id,              // Bill number
+                        bill.name,            // Customer ka naam
+                        item.name,            // Product ka naam
+                        item.barcode,         // Barcode number
+                        item.qty,             // Quantity
+                        item.worth,           // Base Price
+                        item.disc,            // Discount
+                        itemTotal             // Final Amount
+                    ]);
+                    
+                    totalBarcodeSales += itemTotal;
+                }
+            });
+        }
+    });
+
+    if (!barcodeItemFound) {
+        alert("Abhi tak database mein koi bhi barcode scanned item nahi mila!");
+        return;
+    }
+
+    // Aakhir mein Grand Total ki ek row add karein
+    rows.push(["", "", "", "", "", "", "", "GRAND TOTAL", totalBarcodeSales]);
+
+    // Excel file generate aur download karein
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Barcode_Sales");
+    
+    let today = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Sanskriti_Barcode_Sales_${today}.xlsx`);
+}
+
 // Cancel function with Password Protection
 function promptCancel() {
     let input = prompt("Enter Admin Password to PERMANENTLY CANCEL this bill:", "");
@@ -1272,10 +1487,10 @@ function getFinancialYear() {
     // Agar April (3) ya usse baad ka mahina hai
     if (month >= 3) {
         return `${shortYear}-${nextShortYear}`;
-    } else {
+   } else {
         return `${prevShortYear}-${shortYear}`;
     }
-}window.onload
+}
 
 function exportFinancialReport() {
     try {

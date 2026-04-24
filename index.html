@@ -836,11 +836,9 @@ function renderStock(viewType = currentView) {
     filteredStock.forEach((i, index) => {
         let displaySNo = index + 1;
         let tr = document.createElement("tr");
-        // Yahan ID ka use ho raha hai takki galat item edit/delete na ho
         tr.innerHTML = `
             <td>${displaySNo}</td>
-            <td>${i.barcode}</td>
-            <td id="name-${i.id}">${i.name} ${ (i.category === "Latkan" || i.category === "Lace") ? "(Accessories)" : "" }</td>
+            <td id="barcode-${i.id}">${i.barcode}</td> <td id="name-${i.id}">${i.name} ${ (i.category === "Latkan" || i.category === "Lace") ? "(Accessories)" : "" }</td>
             <td id="size-${i.id}">${i.size}</td>
             <td id="pRate-${i.id}">${i.pRate || 0}</td>
             <td id="price-${i.id}">${i.price}</td>
@@ -855,9 +853,12 @@ function renderStock(viewType = currentView) {
 function editRow(id) {
     if (!verifyActionPassword()) return; 
 
-
     let item = stock.find(s => s.id === id);
     if(!item) return;
+
+    // Barcode Edit Input
+    document.getElementById(`barcode-${id}`).innerHTML = `<input type="text" id="edit-barcode-${id}" class="edit-input" style="width:130px" value="${item.barcode}">`;
+    
     document.getElementById(`name-${id}`).innerHTML = `<input type="text" id="edit-name-${id}" class="edit-input" style="width:100px" value="${item.name}">`;
     document.getElementById(`size-${id}`).innerHTML = `<input type="text" id="edit-size-${id}" class="edit-input" style="width:50px" value="${item.size}">`;
     document.getElementById(`pRate-${id}`).innerHTML = `<input type="number" id="edit-pRate-${id}" class="edit-input" style="width:70px" value="${item.pRate || 0}">`;
@@ -870,24 +871,22 @@ function editRow(id) {
 }
 
 function saveRow(id) {
-let newPRate = Number(document.getElementById(`edit-pRate-${id}`).value);
-    let item = stock.find(s => s.id === id);
-    
-    // Naya barcode generate karein (Prefix + Random + New P.Rate)
-    // Hum purana prefix use karenge jo item mein pehle se save hai
-    let newBarcode = item.prefix + Math.floor(100000 + Math.random() * 900000) + newPRate;
+    let updatedBarcode = document.getElementById(`edit-barcode-${id}`).value; // Input se value li
+    let newPRate = Number(document.getElementById(`edit-pRate-${id}`).value);
 
     db.ref("sanskriti_stock/" + id).update({
+        barcode: updatedBarcode, // Manual ya Purana barcode hi save hoga
         name: document.getElementById(`edit-name-${id}`).value,
         size: document.getElementById(`edit-size-${id}`).value,
         pRate: newPRate,
-        barcode: newBarcode, // Yeh line naya barcode save karegi
         price: Number(document.getElementById(`edit-price-${id}`).value),
         qty: Number(document.getElementById(`edit-qty-${id}`).value),
         unit: document.getElementById(`edit-unit-${id}`).value
     }).then(() => {
-        alert("Stock & Barcode Updated!");
-        renderStock(); // Table ko refresh karein naye barcode ke saath
+        alert("Stock Updated Successfully!");
+        renderStock();
+    }).catch((err) => {
+        alert("Update failed: " + err.message);
     });
 }
 
@@ -923,7 +922,27 @@ function addExchangeToBill() {
 
 function addBill(code, isExchange) {
     let item = stock.find(i => i.barcode === code);
-    if (!item) return;
+    if (!item) {
+        alert("Barcode stock mein nahi mila!");
+        return;
+    }
+
+    // --- NEW STOCK VALIDATION LOGIC ---
+    if (!isExchange) { // Agar exchange (return) nahi hai tabhi stock check karein
+        let existingInBill = bill.find(b => b.barcode === code && b.isExchange === false);
+        let currentlyInBillQty = existingInBill ? existingInBill.qty : 0;
+        let totalRequestedQty = currentlyInBillQty + 1;
+
+        if (Number(item.qty) <= 0) {
+            alert("Out of Stock! Yeh item stock mein nahi hai (Available: " + item.qty + ").");
+            return;
+        }
+        if (totalRequestedQty > Number(item.qty)) {
+            alert("Stock Limit Reached! Aapke paas sirf " + item.qty + " bache hain.");
+            return;
+        }
+    }
+    // ----------------------------------
 
     let existing = bill.find(b => b.barcode === code && b.isExchange === isExchange);
     if (existing) { 
@@ -993,6 +1012,19 @@ function renderBill() {
 
 function updateBillQty(index, newQty) {
     if(newQty < 0.01) { removeFromBill(index); return; }
+
+    // --- NEW MANUAL QTY VALIDATION ---
+    let billItem = bill[index];
+    if (!billItem.isExchange && !billItem.isStitching) {
+        let stockItem = stock.find(i => i.barcode === billItem.barcode);
+        if (stockItem && Number(newQty) > Number(stockItem.qty)) {
+            alert("Stock Limit Reached! Aapke paas sirf " + stockItem.qty + " bache hain.");
+            renderBill(); // Purani value wapas laane ke liye table dobara render karein
+            return;
+        }
+    }
+    // ---------------------------------
+
     bill[index].qty = Number(newQty);
     bill[index].total = bill[index].price * bill[index].qty;
     renderBill();
