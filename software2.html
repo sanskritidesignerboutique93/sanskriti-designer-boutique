@@ -654,7 +654,14 @@ async function saveBill() {
         select.innerHTML = '<option value="">-- ITEM --</option>';
         document.querySelectorAll('#itemRows tr').forEach(r => {
             let name = r.querySelector('.p-name').value;
-            if(name) select.innerHTML += `<option value="${name}">${name}</option>`;
+            if(name) {
+                // Name ko split karna taaki KURTA aur PANT alag alag dropdown mein aayen
+                let parts = name.split(/[\+\&]/);
+                parts.forEach(p => {
+                    let itemName = p.trim();
+                    if(itemName) select.innerHTML += `<option value="${itemName}">${itemName}</option>`;
+                });
+            }
         });
     }
 
@@ -676,10 +683,12 @@ async function saveBill() {
         let name = document.getElementById('devItemName').value;
         let qty = Number(document.getElementById('devQty').value);
 
-        if(name && qty > 0) {
-            let totalOrdered = 0;
+        let totalOrdered = 0;
             document.querySelectorAll('#itemRows tr').forEach(r => {
-                if(r.querySelector('.p-name').value === name) {
+                let rowName = r.querySelector('.p-name').value;
+                // Check karna ki kya dropdown wala item (name) is row mein + ya & ke saath maujood hai
+                let parts = rowName.split(/[\+\&]/).map(p => p.trim());
+                if(parts.includes(name)) {
                     totalOrdered += Number(r.querySelector('.p-qty').value);
                 }
             });
@@ -695,69 +704,79 @@ async function saveBill() {
             currentDeliveries.push({date: document.getElementById('devDate').value, item: name, qty: qty}); 
             renderDeliveries(); calculate(); document.getElementById('devQty').value = ""; 
         }
-    }
 
     function renderDeliveries() {
-        document.getElementById('devRows').innerHTML = currentDeliveries.map((d, i) => `<tr><td>${cleanDate(d.date)}</td><td>${d.item}</td><td>${d.qty} Pcs</td><td><button class="btn-remove" onclick="currentDeliveries.splice(${i},1);renderDeliveries();calculate();">×</button></td></tr>`).join('');
-    }
+    document.getElementById('devRows').innerHTML =
+        currentDeliveries.map((d, i) => `
+            <tr>
+                <td>${cleanDate(d.date)}</td>
+                <td>${d.item}</td>
+                <td>${d.qty} Pcs</td>
+                <td>
+                    <button class="btn-remove" onclick="removeDelivery(${i})">X</button>
+function removeDelivery(i) {
+    currentDeliveries.splice(i,1);
+    renderDeliveries();
+    calculate();
+}
+                </td>
+            </tr>
+        `).join('');
+}
 
     function calculate() {
-    let subtotal = 0;
-    let totalDisc = 0;
-    let totalPcs = 0;
+    let subtotal = 0, totalDisc = 0, totalPcs = 0;
+document.querySelectorAll('#itemRows tr').forEach(tr => {
+            let name = tr.querySelector('.p-name').value.toUpperCase();
+            let qty = Number(tr.querySelector('.p-qty').value) || 0;
+            let worth = Number(tr.querySelector('.p-worth').value) || 0;
+            let disc = Number(tr.querySelector('.p-disc').value) || 0;
+            
+            subtotal += worth;
+            totalDisc += disc;
 
-    // Har row se data nikalna
-    document.querySelectorAll('#itemRows tr').forEach(tr => {
-        let nameInput = tr.querySelector('.p-name');
-        let name = nameInput ? nameInput.value.trim().toUpperCase() : "";
-        
-        let qty = Number(tr.querySelector('.p-qty').value) || 0;
-        let worth = Number(tr.querySelector('.p-worth').value) || 0;
-        let disc = Number(tr.querySelector('.p-disc').value) || 0;
-        
-        // Barcode check karna (Scanned vs Manual pehchanne ke liye)
-        let barcodeInput = tr.querySelector('.p-barcode');
-        let barcode = barcodeInput ? barcodeInput.value.trim() : "";
-
-        subtotal += worth;
-        totalDisc += disc;
-
-        if (name !== "") {
-            if (barcode !== "") {
-                // LOGIC: Agar item Scanner se aaya hai (Barcode maujood hai)
-                // Toh check karo ki naam mein LATKAN ya FABRIC toh nahi hai
-                if (!name.includes("LATKAN") && !name.includes("FABRIC")) {
-                    totalPcs += qty; // Sirf readymade count hoga
-                }
-            } else {
-                // LOGIC: Agar item Manual type kiya gaya hai (Barcode khali hai)
-                // Isko hamesha Pieces mein jodein
-                totalPcs += qty;
+        if(name) {
+                // BUG FIX: Counts & or + as separate pieces
+                let parts = name.split(/[\+\&]/).filter(p => p.trim() !== "");
+                let piecesPerItem = parts.length > 0 ? parts.length : 1;
+                totalPcs += (qty * piecesPerItem);
             }
-        }
-    });
+        });
 
-    // Payments ka total
-    let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
+    let paid = currentPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+
     let grandTotal = subtotal - totalDisc;
     let balance = grandTotal - paid;
 
-    // UI Summary update karna
+    let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty || 0), 0);
+    let pending = totalPcs - devPcs;
+
     document.getElementById('txtSubTotal').innerText = subtotal;
     document.getElementById('txtTotalDisc').innerText = totalDisc;
     document.getElementById('txtBal').innerText = balance;
-    
-    // Pieces Status update karna
-    let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
-    let pendingPcs = totalPcs - devPcs;
 
     document.getElementById('stTotalPcs').innerText = totalPcs;
     document.getElementById('stDevPcs').innerText = devPcs;
-    document.getElementById('stRemPcs').innerText = pendingPcs;
-    
-    // Top header pcs update
-    document.getElementById('totalPcsHead').innerText = "Total Pcs: " + totalPcs;
+    document.getElementById('stRemPcs').innerText = pending;
+
+    document.getElementById('totalPcsHead').innerText =
+        "Total Pcs: " + totalPcs;
 }
+
+function updateDeliveryDropdown() {
+        let select = document.getElementById('devItemName');
+        select.innerHTML = '<option value="">-- SELECT --</option>';
+        document.querySelectorAll('#itemRows tr').forEach(r => {
+            let name = r.querySelector('.p-name').value;
+            if(name) {
+                let parts = name.split(/[\+\&]/);
+                parts.forEach(p => {
+                    let item = p.trim();
+                    if(item) select.innerHTML += `<option value="${item}">${item}</option>`;
+                });
+            }
+        });
+    }
 
     function printReceipt() {
     document.body.className = "printing-receipt";
@@ -788,11 +807,12 @@ document.getElementById('p-billid').innerText = billNumber + " / " + fy;
             worthTotal += w;
             discTotal += d;
             
-            // Logic: Agar item name mein (SAMPLE) likha hai
+            // Logic: Pcs counting using & or +
+            let subPcs = n.split(/[\+\&]/).filter(p => p.trim() !== "").length;
             if(n.toUpperCase().includes("(SAMPLE)")) {
-                samplePcs += q;
+                samplePcs += (q * subPcs);
             } else {
-                normalPcs += q;
+                normalPcs += (q * subPcs);
             }
         }
     });
@@ -1015,38 +1035,41 @@ document.getElementById('p-billid').innerText = billNumber + " / " + fy;
     rows.forEach((row) => {
         let nameInput = row.querySelector('.p-name');
         if(!nameInput) return;
-        let name = nameInput.value.toUpperCase();
+        let fullName = nameInput.value.toUpperCase();
         let qty = parseInt(row.querySelector('.p-qty').value);
         
-        if(!name || isNaN(qty)) return;
+        if(!fullName || isNaN(qty)) return;
         
-        for(let i=1; i<=qty; i++) {
-            // Barcode value ke liye Bill No + Count
-            let barcodeVal = currentBillNo + "" + count; 
-            // PCS display logic
-            let pcsDisplay = totalPcs === 1 ? "1 PC" : `${count}/${totalPcs} PCS`;
+        // Items ko '&' aur '+' se todna taaki alag barcode nikle
+        let nameParts = fullName.split(/[\+\&]/).map(p => p.trim()).filter(p => p);
 
-            labelsHTML += `
-                <div class="sticker-row">
-                    <div class="label-box">
-                        <div class="name-header">${name}</div>
-                        <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
-                        <div class="details-footer">
-                            <div class="f-bill">BILL: ${currentBillNo}</div>
-                            <div class="f-pcs">${pcsDisplay}</div>
+        nameParts.forEach((itemName) => {
+            for(let i=1; i<=qty; i++) {
+                let barcodeVal = currentBillNo + "" + count; 
+                let pcsDisplay = totalPcs === 1 ? "1 PC" : `${count}/${totalPcs} PCS`;
+
+                labelsHTML += `
+                    <div class="sticker-row">
+                        <div class="label-box">
+                            <div class="name-header">${itemName}</div>
+                            <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
+                            <div class="details-footer">
+                                <div class="f-bill">BILL: ${currentBillNo}</div>
+                                <div class="f-pcs">${pcsDisplay}</div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="label-box">
-                        <div class="name-header">${name}</div>
-                        <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
-                        <div class="details-footer">
-                            <div class="f-bill">BILL: ${currentBillNo}</div>
-                            <div class="f-pcs">${pcsDisplay}</div>
+                        <div class="label-box">
+                            <div class="name-header">${itemName}</div>
+                            <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
+                            <div class="details-footer">
+                                <div class="f-bill">BILL: ${currentBillNo}</div>
+                                <div class="f-pcs">${pcsDisplay}</div>
+                            </div>
                         </div>
-                    </div>
-                </div>`;
-            count++;
-        }
+                    </div>`;
+                count++;
+            }
+        });
     });
 
     if(!labelsHTML) return alert("Please add items first!");
@@ -1185,7 +1208,8 @@ function sendFullWhatsappReceipt() {
             
             worthTotal += w;
             discTotal += d;
-            if(n.includes("(SAMPLE)")) { samplePcs += q; } else { normalPcs += q; }
+            let subPcs = n.split(/[\+\&]/).filter(p => p.trim() !== "").length;
+            if(n.includes("(SAMPLE)")) { samplePcs += (q * subPcs); } else { normalPcs += (q * subPcs); }
         }
     });
 
