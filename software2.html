@@ -15,14 +15,14 @@
         :root { --gold: #b38b67; --dark: #2c3e50; --success: #25D366; --danger: #e74c3c; --bg: #f4f7f6; --info: #2980b9; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: #333; margin: 0; }
         .software-card { 
-    width: 100%; /* 98% se badalkar 100% karein */
-    max-width: 950px; 
-    margin: 0 auto; /* Margin auto rakhein */
-    background: white; 
-    border-radius: 12px; 
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
-    overflow: visible; /* 'hidden' ko 'visible' karein taaki zoom mein content na kategi */
-    border: 1px solid #ddd; 
+    width: 98%;
+    max-width: 1600px;
+    margin: 10px auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    overflow: visible;
+    border: 1px solid #ddd;
 }
         .bill-header { background: var(--dark); color: white; padding: 25px; text-align: center; border-bottom: 5px solid var(--gold); }
         .bill-header h1 { margin: 0; font-family: 'Georgia', serif; font-size: 50px; color: #f1c40f; letter-spacing: 4px; text-transform: uppercase; font-weight: bold; }
@@ -69,7 +69,68 @@
 /* Terms ka style */
         .terms-section { font-size: 11px; text-align: left; margin-top: 10px; border-top: 1px dashed black; padding-top: 5px; line-height: 1.2; color: #000; }
         .terms-section b { font-size: 12px; display: block; margin-bottom: 2px; }   
- 
+        /* =========================
+   RESPONSIVE DESIGN
+========================= */
+
+@media (max-width: 768px) {
+
+    body {
+        padding: 5px;
+        zoom: 90%;
+    }
+
+    .bill-header h1 {
+        font-size: 28px;
+        letter-spacing: 2px;
+    }
+
+    .bill-header p {
+        font-size: 11px;
+    }
+
+    .search-area {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tabs-nav {
+        flex-direction: column;
+    }
+
+    .grid-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .summary-box {
+        grid-template-columns: 1fr;
+    }
+
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .section-bar {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .btn-save,
+    .btn-print,
+    .btn-tags,
+    .btn-load {
+        width: 100%;
+        margin-top: 5px;
+    }
+
+    .bill-no-display {
+        justify-content: center;
+        width: 100%;
+    }
+}
 </style>
 </head>
 <body>
@@ -499,12 +560,30 @@ async function saveBill() {
     let grandTotal = subtotal - totalDisc;
     let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
     let bal = grandTotal - paid;
-    let totalPcs = items.reduce((s, i) => s + Number(i.qty), 0);
+    let normalPcs = 0, samplePcs = 0, sareefallPcs = 0, steamPressPcs = 0;
+
+    items.forEach(i => {
+        let n = (i.name || "").toUpperCase();
+        let q = Number(i.qty) || 0;
+        
+        // Pcs count handle karne ke liye (agar + ya & use hua hai)
+        let subPcs = n.split(/[\+\&]/).filter(p => p.trim() !== "").length;
+        let actualPcs = q * (subPcs > 0 ? subPcs : 1);
+
+        if (n.includes("SAREEFALL")) {
+            sareefallPcs += actualPcs;
+        } else if (n.includes("(SP)")) {
+            steamPressPcs += actualPcs;
+        } else if (n.includes("(SAMPLE)")) {
+            samplePcs += actualPcs;
+        } else {
+            normalPcs += actualPcs;
+        }
+    });
+
+    let totalPcs = normalPcs + sareefallPcs + steamPressPcs + samplePcs;
     let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
     let pendingPcs = totalPcs - devPcs;
-
-    let samplePcs = items.reduce((s, i) => (i.name && i.name.toUpperCase().includes("(SAMPLE)")) ? s + Number(i.qty) : s, 0);
-    let normalPcs = totalPcs - samplePcs;
 
     // --- Full WhatsApp Message Build ---
     let fy = getFinancialYear();
@@ -522,7 +601,7 @@ async function saveBill() {
         currentPayments.forEach(p => { msg += ` - ${cleanDate(p.date)} : Rs ${p.amount} (${p.mode})\n`; });
     } else { msg += ` - No payments recorded\n`; }
 
-    msg += `\n*Inventory Status:*\nNormal : ${normalPcs}\nSample : ${samplePcs}\nTotal Pcs : ${totalPcs}\nDelivered : ${devPcs}\nRemaining : ${pendingPcs}\n\n`;
+    msg += `\n*Inventory Status:*\nNormal : ${normalPcs}\nSareefall : ${sareefallPcs}\nSteamPress : ${steamPressPcs}\nSample : ${samplePcs}\nTotal Pcs : ${totalPcs}\nDelivered : ${devPcs}\nRemaining : ${pendingPcs}\n\n`;
 
     msg += `*Delivery Record:*\n`;
     if(currentDeliveries.length > 0) {
@@ -650,20 +729,30 @@ async function saveBill() {
 }
 
     function updateDeliveryDropdown() {
-        let select = document.getElementById('devItemName');
-        select.innerHTML = '<option value="">-- ITEM --</option>';
-        document.querySelectorAll('#itemRows tr').forEach(r => {
-            let name = r.querySelector('.p-name').value;
-            if(name) {
-                // Name ko split karna taaki KURTA aur PANT alag alag dropdown mein aayen
-                let parts = name.split(/[\+\&]/);
-                parts.forEach(p => {
-                    let itemName = p.trim();
-                    if(itemName) select.innerHTML += `<option value="${itemName}">${itemName}</option>`;
-                });
-            }
-        });
-    }
+    let select = document.getElementById('devItemName');
+    select.innerHTML = '<option value="">-- SELECT --</option>';
+    
+    const accessoryWords = ["LACE", "LATKAN", "FABRIC", "DYE", "PATCH", "BUTTON"];
+
+    document.querySelectorAll('#itemRows tr').forEach(r => {
+        let nameInput = r.querySelector('.p-name');
+        let name = nameInput.value.toUpperCase();
+
+        if(name) {
+            let allParts = name.split(/[\+\&]/);
+
+            allParts.forEach(p => {
+                let item = p.trim().toUpperCase();
+
+                if(item && !accessoryWords.some(acc => item.includes(acc))) {
+                    select.innerHTML += `<option value="${item}">${item}</option>`;
+                }
+            });
+        }
+    });
+
+    calculate();
+}
 
     function updateDeliveryQty() { if(document.getElementById('devItemName').value) document.getElementById('devQty').value = 1; }
 
@@ -680,71 +769,135 @@ async function saveBill() {
     }
 
     function addDelivery() {
-        let name = document.getElementById('devItemName').value;
-        let qty = Number(document.getElementById('devQty').value);
+    let name = document.getElementById('devItemName').value;
+    let qty = Number(document.getElementById('devQty').value);
 
-        let totalOrdered = 0;
-            document.querySelectorAll('#itemRows tr').forEach(r => {
-                let rowName = r.querySelector('.p-name').value;
-                // Check karna ki kya dropdown wala item (name) is row mein + ya & ke saath maujood hai
-                let parts = rowName.split(/[\+\&]/).map(p => p.trim());
-                if(parts.includes(name)) {
-                    totalOrdered += Number(r.querySelector('.p-qty').value);
-                }
-            });
+    if (!name || qty <= 0) {
+        alert("Please select item and enter valid quantity!");
+        return;
+    }
 
-            let alreadyDelivered = currentDeliveries.reduce((sum, d) => d.item === name ? sum + Number(d.qty) : sum, 0);
-            let remaining = totalOrdered - alreadyDelivered;
-            
-            if(qty > remaining) {
-                alert(`Error: Aap ${qty} pcs deliver nahi kar sakte! ${name} ke sirf ${remaining} pcs pending hain.`);
-                return;
-            }
-
-            currentDeliveries.push({date: document.getElementById('devDate').value, item: name, qty: qty}); 
-            renderDeliveries(); calculate(); document.getElementById('devQty').value = ""; 
+    // 1. Total Ordered Pcs dhoondo (Table se)
+    let totalOrdered = 0;
+    document.querySelectorAll('#itemRows tr').forEach(r => {
+        let rowName = r.querySelector('.p-name').value;
+        let rowQty = Number(r.querySelector('.p-qty').value) || 0;
+        
+        // Check if item exists in this row (handling & or +)
+        let parts = rowName.split(/[\+\&]/).map(p => p.trim().toUpperCase());
+        if (parts.includes(name.toUpperCase())) {
+            totalOrdered += rowQty;
         }
+    });
+
+    // 2. Already Delivered Pcs count karo
+    let alreadyDelivered = currentDeliveries.reduce((sum, d) => 
+        d.item.toUpperCase() === name.toUpperCase() ? sum + Number(d.qty) : sum, 0
+    );
+
+    // 3. Pending Pcs calculate karo
+    let remaining = totalOrdered - alreadyDelivered;
+
+    // --- MAIN FIX START ---
+    if (remaining <= 0) {
+        alert(`Error: ${name} ke saare pieces pehle hi deliver ho chuke hain! (0 Pcs left)`);
+        return;
+    }
+
+    if (qty > remaining) {
+        alert(`Error: Aap ${qty} pcs deliver nahi kar sakte! Sirf ${remaining} pcs bache hain.`);
+        return;
+    }
+    // --- MAIN FIX END ---
+
+    // Sab theek hai toh save karo
+    currentDeliveries.push({
+        date: document.getElementById('devDate').value, 
+        item: name, 
+        qty: qty
+    }); 
+    
+    renderDeliveries(); 
+    calculate(); 
+    document.getElementById('devQty').value = ""; 
+}
 
     function renderDeliveries() {
-    document.getElementById('devRows').innerHTML =
-        currentDeliveries.map((d, i) => `
-            <tr>
-                <td>${cleanDate(d.date)}</td>
-                <td>${d.item}</td>
-                <td>${d.qty} Pcs</td>
-                <td>
-                    <button class="btn-remove" onclick="removeDelivery(${i})">X</button>
-function removeDelivery(i) {
-    currentDeliveries.splice(i,1);
-    renderDeliveries();
-    calculate();
-}
-                </td>
-            </tr>
-        `).join('');
+        document.getElementById('devRows').innerHTML =
+            currentDeliveries.map((d, i) => `
+                <tr>
+                    <td>${cleanDate(d.date)}</td>
+                    <td>${d.item}</td>
+                    <td>${d.qty} Pcs</td>
+                    <td>
+                        <button class="btn-remove" onclick="removeDelivery(${i})">X</button>
+                    </td>
+                </tr>
+            `).join('');
+    }
+
+    function removeDelivery(i) {
+        currentDeliveries.splice(i, 1);
+        renderDeliveries();
+        calculate();
+    }
+
+function countPieces(name) {
+    name = name.toUpperCase().trim();
+
+    // Sirf material / accessory words skip honge
+    const skipWords = [
+        "FAB", "FABRIC", "DYE",
+        "LACE", "LATKAN",
+        "TUSSAL", "TASSAL", "TASSEL",
+        "BUTTON", "ZIP", "ZIPP",
+        "CHAIN", "PAD",
+        "HOOK", "ACCESSORY"
+    ];
+
+    // Agar skip word mila -> 0 pcs
+    for (let word of skipWords) {
+        if (name.includes(word)) {
+            return 0;
+        }
+    }
+
+    // Agar & ya + hai to combo item count
+    let parts = name.split(/[\+\&]/).map(x => x.trim()).filter(x => x);
+
+    if (parts.length > 1) {
+        return parts.length;
+    }
+
+    // Baaki sab new garment names = 1 pcs
+    return 1;
 }
 
     function calculate() {
-    let subtotal = 0, totalDisc = 0, totalPcs = 0;
-document.querySelectorAll('#itemRows tr').forEach(tr => {
-            let name = tr.querySelector('.p-name').value.toUpperCase();
-            let qty = Number(tr.querySelector('.p-qty').value) || 0;
-            let worth = Number(tr.querySelector('.p-worth').value) || 0;
-            let disc = Number(tr.querySelector('.p-disc').value) || 0;
-            
+    let subtotal = 0;
+    let totalDisc = 0;
+    let totalPcs = 0;
+
+    // Har row ko check karein
+    document.querySelectorAll('#itemRows tr').forEach(tr => {
+        let nameInput = tr.querySelector('.p-name');
+        let qtyInput = tr.querySelector('.p-qty');
+        let worthInput = tr.querySelector('.p-worth');
+        let discInput = tr.querySelector('.p-disc');
+
+        if (nameInput && nameInput.value.trim() !== "") {
+            let qty = countPieces(nameInput.value);
+qtyInput.value = qty;
+            let worth = Number(worthInput.value) || 0;
+            let disc = Number(discInput.value) || 0;
+
             subtotal += worth;
             totalDisc += disc;
-
-        if(name) {
-                // BUG FIX: Counts & or + as separate pieces
-                let parts = name.split(/[\+\&]/).filter(p => p.trim() !== "");
-                let piecesPerItem = parts.length > 0 ? parts.length : 1;
-                totalPcs += (qty * piecesPerItem);
-            }
-        });
-
+            totalPcs += qty; // Yeh line ab sahi count dikhayegi
+        }
+    });
+    
     let paid = currentPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
-
     let grandTotal = subtotal - totalDisc;
     let balance = grandTotal - paid;
 
@@ -764,20 +917,30 @@ document.querySelectorAll('#itemRows tr').forEach(tr => {
 }
 
 function updateDeliveryDropdown() {
-        let select = document.getElementById('devItemName');
-        select.innerHTML = '<option value="">-- SELECT --</option>';
-        document.querySelectorAll('#itemRows tr').forEach(r => {
-            let name = r.querySelector('.p-name').value;
-            if(name) {
-                let parts = name.split(/[\+\&]/);
-                parts.forEach(p => {
-                    let item = p.trim();
-                    if(item) select.innerHTML += `<option value="${item}">${item}</option>`;
-                });
-            }
-        });
-    }
+    let select = document.getElementById('devItemName');
+    select.innerHTML = '<option value="">-- SELECT --</option>';
+    
+    const accessoryWords = ["LACE", "LATKAN", "FABRIC", "DYE", "PATCH", "BUTTON"];
 
+    document.querySelectorAll('#itemRows tr').forEach(r => {
+        let nameInput = r.querySelector('.p-name');
+        let name = nameInput.value.toUpperCase();
+
+        if(name) {
+            let allParts = name.split(/[\+\&]/);
+
+            allParts.forEach(p => {
+                let item = p.trim().toUpperCase();
+
+                if(item && !accessoryWords.some(acc => item.includes(acc))) {
+                    select.innerHTML += `<option value="${item}">${item}</option>`;
+                }
+            });
+        }
+    });
+
+    calculate();
+}
     function printReceipt() {
     document.body.className = "printing-receipt";
     let fy = getFinancialYear();
@@ -1028,49 +1191,70 @@ document.getElementById('p-billid').innerText = billNumber + " / " + fy;
    function printBarcodeTags() {
     let rows = document.querySelectorAll('#itemRows tr');
     let totalPcs = parseInt(document.getElementById('stTotalPcs').innerText);
-    let currentBillNo = document.getElementById('displayBillNo').value; // Sahi Bill No uthane ke liye
+    let currentBillNo = document.getElementById('displayBillNo').value;
     let labelsHTML = "";
     let count = 1;
 
     rows.forEach((row) => {
         let nameInput = row.querySelector('.p-name');
-        if(!nameInput) return;
-        let fullName = nameInput.value.toUpperCase();
-        let qty = parseInt(row.querySelector('.p-qty').value);
-        
-        if(!fullName || isNaN(qty)) return;
-        
-        // Items ko '&' aur '+' se todna taaki alag barcode nikle
-        let nameParts = fullName.split(/[\+\&]/).map(p => p.trim()).filter(p => p);
+        if (!nameInput) return;
+
+        let fullName = nameInput.value.toUpperCase().trim();
+
+        if (!fullName) return;
+
+        // 👇 FABRIC / ACCESSORY / NON PCS item skip
+        let qty = countPieces(fullName);
+
+        if (qty === 0) return;
+
+        // 👇 split only for garment combo
+        let nameParts = fullName
+            .split(/[\+\&]/)
+            .map(p => p.trim())
+            .filter(p => countPieces(p) > 0);
 
         nameParts.forEach((itemName) => {
-            for(let i=1; i<=qty; i++) {
-                let barcodeVal = currentBillNo + "" + count; 
-                let pcsDisplay = totalPcs === 1 ? "1 PC" : `${count}/${totalPcs} PCS`;
+
+            for (let i = 1; i <= 1; i++) {
+
+                let barcodeVal = currentBillNo + "" + count;
+                let pcsDisplay = totalPcs === 1
+                    ? "1 PC"
+                    : `${count}/${totalPcs} PCS`;
 
                 labelsHTML += `
-                    <div class="sticker-row">
-                        <div class="label-box">
-                            <div class="name-header">${itemName}</div>
-                            <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
-                            <div class="details-footer">
-                                <div class="f-bill">BILL: ${currentBillNo}</div>
-                                <div class="f-pcs">${pcsDisplay}</div>
-                            </div>
+                <div class="sticker-row">
+                    <div class="label-box">
+                        <div class="name-header">${itemName}</div>
+                        <div class="barcode-wrapper">
+                            <svg class="barcode-svg" data-val="${barcodeVal}"></svg>
                         </div>
-                        <div class="label-box">
-                            <div class="name-header">${itemName}</div>
-                            <div class="barcode-wrapper"><svg class="barcode-svg" data-val="${barcodeVal}"></svg></div>
-                            <div class="details-footer">
-                                <div class="f-bill">BILL: ${currentBillNo}</div>
-                                <div class="f-pcs">${pcsDisplay}</div>
-                            </div>
+                        <div class="details-footer">
+                            <div class="f-bill">BILL: ${currentBillNo}</div>
+                            <div class="f-pcs">${pcsDisplay}</div>
                         </div>
-                    </div>`;
+                    </div>
+
+                    <div class="label-box">
+                        <div class="name-header">${itemName}</div>
+                        <div class="barcode-wrapper">
+                            <svg class="barcode-svg" data-val="${barcodeVal}"></svg>
+                        </div>
+                        <div class="details-footer">
+                            <div class="f-bill">BILL: ${currentBillNo}</div>
+                            <div class="f-pcs">${pcsDisplay}</div>
+                        </div>
+                    </div>
+                </div>`;
+
                 count++;
             }
+
         });
+
     });
+
 
     if(!labelsHTML) return alert("Please add items first!");
 
@@ -1191,7 +1375,7 @@ function sendFullWhatsappReceipt() {
     msg += `\`${hItem}|${hQty}|${hAmt}\` \n`;
     msg += `\`---------------------------\` \n`;
 
-    let worthTotal = 0, discTotal = 0, normalPcs = 0, samplePcs = 0;
+let worthTotal = 0, discTotal = 0, normalPcs = 0, samplePcs = 0, sareefallPcs = 0, steamPressPcs = 0;
     
     document.querySelectorAll('#itemRows tr').forEach(r => {
         let n = r.querySelector('.p-name').value.toUpperCase();
@@ -1200,20 +1384,41 @@ function sendFullWhatsappReceipt() {
         let d = Number(r.querySelector('.p-disc').value) || 0;
         
         if(n) {
+            worthTotal += w;
+            discTotal += d;
+            
+            // 1. Pehle actualPcs calculate karein (Lace, Latkan, Fabric ko single piece hi rakhne ke logic ke sath)
+            let parts = n.split(/[\+\&]/).filter(p => p.trim() !== "");
+            let subPcs = 0;
+            parts.forEach(p => {
+                let partName = p.trim();
+                if (!partName.includes("LACE") && !partName.includes("LATKAN") && !partName.includes("FABRIC")) {
+                    subPcs++;
+                }
+            });
+            let actualPcs = q * (subPcs > 0 ? subPcs : 1);
+
+            // 2. Ab message formatting mein 'q' ki jagah 'actualPcs' show karein
             let namePart = n.padEnd(15, ' ').substring(0, 15);
-            let qtyPart = q.toString().padStart(2, ' ');
+            let qtyPart = actualPcs.toString().padStart(2, ' '); 
             let amtPart = w.toString().padStart(7, ' ');
             
             msg += `\`${namePart}|${qtyPart} |${amtPart}\` \n`;
-            
-            worthTotal += w;
-            discTotal += d;
-            let subPcs = n.split(/[\+\&]/).filter(p => p.trim() !== "").length;
-            if(n.includes("(SAMPLE)")) { samplePcs += (q * subPcs); } else { normalPcs += (q * subPcs); }
+
+            // 3. Inventory Status ke liye categories mein divide karein
+            if(n.includes("SAREEFALL")) {
+                sareefallPcs += actualPcs;
+            } else if(n.includes("(SP)")) {
+                steamPressPcs += actualPcs;
+            } else if(n.includes("(SAMPLE)")) {
+                samplePcs += actualPcs;
+            } else {
+                normalPcs += actualPcs;
+            }
         }
     });
 
-    let totalPcs = normalPcs + samplePcs;
+    let totalPcs = normalPcs + sareefallPcs + steamPressPcs + samplePcs;
     let grandTotal = worthTotal - discTotal;
     let paidTotal = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
     let balanceAmt = grandTotal - paidTotal;
@@ -1226,11 +1431,20 @@ function sendFullWhatsappReceipt() {
     msg += `\`${tLabel} ${tQty}  ${tAmt}\` \n`;
     msg += `\`---------------------------\` \n\n`;
 
+    let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
+    let pendingPcs = totalPcs - devPcs;
+
     // Summary Section with Balance shifted under Advance
+    msg += `*Inventory Status:*\n`;
     msg += `Normal : ${normalPcs}\n`;
+    msg += `Sareefall : ${sareefallPcs}\n`;
+    msg += `SteamPress : ${steamPressPcs}\n`;
     msg += `Sample : ${samplePcs}\n`;
     msg += `Total Pcs : ${totalPcs}\n`;
-    msg += `Total : Rs ${worthTotal}\n`; // Total (Discount se pehle)
+    msg += `Delivered : ${devPcs}\n`;
+    msg += `Remaining : ${pendingPcs}\n`;
+    msg += `---------------------------\n`;
+    msg += `Total : Rs ${worthTotal}\n`;
     msg += `Discount : Rs ${discTotal}\n`;
     msg += `*Grand Total : Rs ${grandTotal}*\n`;
     msg += `Advance : Rs ${paidTotal}\n`;
