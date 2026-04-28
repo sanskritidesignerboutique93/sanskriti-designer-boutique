@@ -531,26 +531,22 @@ async function saveBill() {
     let grandTotal = subtotal - totalDisc;
     let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
     let bal = grandTotal - paid;
-    let normalPcs = 0, samplePcs = 0, sareefallPcs = 0, steamPressPcs = 0;
+let normalPcs = 0, samplePcs = 0, sareefallPcs = 0, steamPressPcs = 0;
 
-    items.forEach(i => {
-        let n = (i.name || "").toUpperCase();
-        let q = Number(i.qty) || 0;
-        
-        // Pcs count handle karne ke liye (agar + ya & use hua hai)
-        let subPcs = n.split(/[\+\&]/).filter(p => p.trim() !== "").length;
-        let actualPcs = q * (subPcs > 0 ? subPcs : 1);
+items.forEach(i => {
+    let n = (i.name || "").toUpperCase();
+    let pcs = Number(i.qty);
 
-        if (n.includes("SAREEFALL")) {
-            sareefallPcs += actualPcs;
-        } else if (n.includes("(SP)")) {
-            steamPressPcs += actualPcs;
-        } else if (n.includes("(SAMPLE)")) {
-            samplePcs += actualPcs;
-        } else {
-            normalPcs += actualPcs;
-        }
-    });
+    if (n.includes("SAREEFALL")) {
+        sareefallPcs += pcs;
+    } else if (n.includes("(SP)")) {
+        steamPressPcs += pcs;
+    } else if (n.includes("(SAMPLE)")) {
+        samplePcs += pcs;
+    } else {
+        normalPcs += pcs;
+    }
+});
 
     let totalPcs = normalPcs + sareefallPcs + steamPressPcs + samplePcs;
     let devPcs = currentDeliveries.reduce((s, d) => s + Number(d.qty), 0);
@@ -844,12 +840,11 @@ function countPieces(name) {
     return 1;
 }
 
-    function calculate() {
+ function calculate() {
     let subtotal = 0;
     let totalDisc = 0;
     let totalPcs = 0;
 
-    // Har row ko check karein
     document.querySelectorAll('#itemRows tr').forEach(tr => {
         let nameInput = tr.querySelector('.p-name');
         let qtyInput = tr.querySelector('.p-qty');
@@ -858,16 +853,17 @@ function countPieces(name) {
 
         if (nameInput && nameInput.value.trim() !== "") {
             let qty = countPieces(nameInput.value);
-qtyInput.value = qty;
+            qtyInput.value = qty;
+
             let worth = Number(worthInput.value) || 0;
             let disc = Number(discInput.value) || 0;
 
             subtotal += worth;
             totalDisc += disc;
-            totalPcs += qty; // Yeh line ab sahi count dikhayegi
+            totalPcs += qty;
         }
     });
-    
+
     let paid = currentPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
     let grandTotal = subtotal - totalDisc;
     let balance = grandTotal - paid;
@@ -883,8 +879,7 @@ qtyInput.value = qty;
     document.getElementById('stDevPcs').innerText = devPcs;
     document.getElementById('stRemPcs').innerText = pending;
 
-    document.getElementById('totalPcsHead').innerText =
-        "Total Pcs: " + totalPcs;
+    document.getElementById('totalPcsHead').innerText = "Total Pcs: " + totalPcs;
 }
 
 function updateDeliveryDropdown() {
@@ -942,12 +937,13 @@ document.getElementById('p-billid').innerText = billNumber + " / " + fy;
             discTotal += d;
             
             // Logic: Pcs counting using & or +
-            let subPcs = n.split(/[\+\&]/).filter(p => p.trim() !== "").length;
-            if(n.toUpperCase().includes("(SAMPLE)")) {
-                samplePcs += (q * subPcs);
-            } else {
-                normalPcs += (q * subPcs);
-            }
+            let pcs = Number(q);
+
+if(n.toUpperCase().includes("(SAMPLE)")) {
+    samplePcs += pcs;
+} else {
+    normalPcs += pcs;
+}
         }
     });
 
@@ -1367,7 +1363,7 @@ let worthTotal = 0, discTotal = 0, normalPcs = 0, samplePcs = 0, sareefallPcs = 
                     subPcs++;
                 }
             });
-            let actualPcs = q * (subPcs > 0 ? subPcs : 1);
+            let actualPcs = Number(q);
 
             // 2. Ab message formatting mein 'q' ki jagah 'actualPcs' show karein
             let namePart = n.padEnd(15, ' ').substring(0, 15);
@@ -1378,14 +1374,14 @@ let worthTotal = 0, discTotal = 0, normalPcs = 0, samplePcs = 0, sareefallPcs = 
 
             // 3. Inventory Status ke liye categories mein divide karein
             if(n.includes("SAREEFALL")) {
-                sareefallPcs += actualPcs;
-            } else if(n.includes("(SP)")) {
-                steamPressPcs += actualPcs;
-            } else if(n.includes("(SAMPLE)")) {
-                samplePcs += actualPcs;
-            } else {
-                normalPcs += actualPcs;
-            }
+    sareefallPcs += actualPcs;
+} else if(n.includes("(SP)")) {
+    steamPressPcs += actualPcs;
+} else if(n.includes("(SAMPLE)")) {
+    samplePcs += actualPcs;
+} else {
+    normalPcs += actualPcs;
+}
         }
     });
 
