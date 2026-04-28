@@ -70,125 +70,36 @@
         .terms-section { font-size: 11px; text-align: left; margin-top: 10px; border-top: 1px dashed black; padding-top: 5px; line-height: 1.2; color: #000; }
         .terms-section b { font-size: 12px; display: block; margin-bottom: 2px; }   
 /* =========================
-   MOBILE RESPONSIVE DESIGN
-   iPhone 13 + S25 Ultra
+  /* =========================
+   TOP BUTTONS RESPONSIVE
 ========================= */
 
+.top-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: #fff3cd;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #ffeeba;
+    margin-left: 10px;
+    flex-wrap: wrap;
+}
+
 @media screen and (max-width: 768px) {
-
-    body {
-        padding: 4px;
-        margin: 0;
-        font-size: 14px;
-    }
-
-    .software-card {
+    
+    .top-action-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-left: 0;
         width: 100%;
-        max-width: 100%;
-        margin: 0;
-        border-radius: 8px;
     }
 
-    .bill-header {
-        padding: 15px 8px;
-    }
-
-    .bill-header h1 {
-        font-size: 26px;
-        letter-spacing: 1px;
-    }
-
-    .bill-header p {
-        font-size: 10px;
-        line-height: 1.4;
-    }
-
-    .search-area {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        padding: 10px;
-    }
-
-    .search-area > div {
-        width: 100%;
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    .tabs-nav {
-        flex-direction: column;
-    }
-
-    .tab-btn {
-        width: 100%;
-        font-size: 13px;
-        padding: 12px;
-    }
-
-    .grid-3 {
-        grid-template-columns: 1fr;
-        gap: 8px;
-    }
-
-    input, select {
-        font-size: 14px;
-        padding: 10px;
-    }
-
-    table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-        font-size: 12px;
-    }
-
-    th, td {
-        padding: 8px;
-        font-size: 12px;
-    }
-
-    .section-bar {
-        flex-direction: column;
-        gap: 5px;
-        text-align: center;
-        font-size: 12px;
-    }
-
-    .summary-box {
-        grid-template-columns: 1fr;
-        gap: 10px;
-        padding: 15px;
-    }
-
-    .val-big {
-        font-size: 26px;
-    }
-
-    .btn-save,
-    .btn-print,
-    .btn-tags,
-    .btn-load {
-        width: 100%;
-        font-size: 14px;
-        padding: 12px;
-    }
-
-    .bill-no-display {
-        width: 100%;
-        justify-content: center;
-        font-size: 14px;
-    }
-
-    #displayBillNo {
-        width: 70px;
-        font-size: 14px;
-    }
-
-    #barcodeScanner {
+    .top-action-buttons input,
+    .top-action-buttons button {
         width: 100% !important;
-        max-width: 100% !important;
-        font-size: 14px;
+        margin-left: 0 !important;
     }
 }
 </style>
@@ -202,7 +113,7 @@
     </div>
 
     <div class="search-area">
-    <div style="display: flex; align-items: center; gap: 5px; background: #fff3cd; padding: 5px; border-radius: 5px; border: 1px solid #ffeeba; margin-left: 10px;">
+    <div class="top-action-buttons">
         <input type="text" id="searchBillId" placeholder="Bill No" style="width:90px;">
         <button class="btn-load" onclick="loadBill()">🔍 LOAD</button>
         <button class="btn-load" style="background:#d35400;" onclick="showDues()">📊 DUES</button>
