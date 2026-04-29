@@ -532,19 +532,21 @@ async function saveBill() {
     let paid = currentPayments.reduce((s, p) => s + Number(p.amount), 0);
     let bal = grandTotal - paid;
 let normalPcs = 0, samplePcs = 0, sareefallPcs = 0, steamPressPcs = 0;
-
 items.forEach(i => {
     let n = (i.name || "").toUpperCase();
-    let pcs = Number(i.qty);
+    let q = Number(i.qty); // Asli quantity (1 mtr, 2 pcs etc.)
+    
+    let multiplier = countPieces(n);
+    let pcsForCounting = (multiplier > 0) ? q : 0; // Sirf counting ke liye zero
 
     if (n.includes("SAREEFALL")) {
-        sareefallPcs += pcs;
+        sareefallPcs += pcsForCounting;
     } else if (n.includes("(SP)")) {
-        steamPressPcs += pcs;
+        steamPressPcs += pcsForCounting;
     } else if (n.includes("(SAMPLE)")) {
-        samplePcs += pcs;
+        samplePcs += pcsForCounting;
     } else {
-        normalPcs += pcs;
+        normalPcs += pcsForCounting;
     }
 });
 
@@ -840,6 +842,8 @@ function countPieces(name) {
     return 1;
 }
 
+
+
  function calculate() {
     let subtotal = 0;
     let totalDisc = 0;
@@ -851,18 +855,22 @@ function countPieces(name) {
         let worthInput = tr.querySelector('.p-worth');
         let discInput = tr.querySelector('.p-disc');
 
-        if (nameInput && nameInput.value.trim() !== "") {
-            let qty = countPieces(nameInput.value);
-            qtyInput.value = qty;
+       if (nameInput && nameInput.value.trim() !== "") {
+        let multiplier = countPieces(nameInput.value); // Fabric hai toh 0, Kurta hai toh 1, Combo hai toh 2
+        let enteredQty = Number(qtyInput.value) || 0;  
 
-            let worth = Number(worthInput.value) || 0;
-            let disc = Number(discInput.value) || 0;
+        // NAYA LOGIC: Agar multiplier 0 se bada hai, toh enteredQty hi pieces hain.
+        // Agar multiplier 0 hai (Fabric/Lace), toh pieces 0 hain.
+        let rowPcs = (multiplier > 0) ? enteredQty : 0; 
 
-            subtotal += worth;
-            totalDisc += disc;
-            totalPcs += qty;
-        }
-    });
+        let worth = Number(worthInput.value) || 0;
+        let disc = Number(discInput.value) || 0;
+
+        subtotal += worth;
+        totalDisc += disc;
+        totalPcs += rowPcs; // Ab 2 piece dalne par 2 hi judega
+    }
+});
 
     let paid = currentPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
     let grandTotal = subtotal - totalDisc;
@@ -936,9 +944,9 @@ document.getElementById('p-billid').innerText = billNumber + " / " + fy;
             worthTotal += w;
             discTotal += d;
             
-            // Logic: Pcs counting using & or +
-            let pcs = Number(q);
-
+            // NAYA LOGIC: Fabric, Lace, Latkan aadi ko zero (0) pcs manane ke liye
+            let multiplier = countPieces(n);
+            let pcs = (multiplier > 0) ? Number(q) : 0;
 if(n.toUpperCase().includes("(SAMPLE)")) {
     samplePcs += pcs;
 } else {
@@ -1354,17 +1362,14 @@ let worthTotal = 0, discTotal = 0, normalPcs = 0, samplePcs = 0, sareefallPcs = 
             worthTotal += w;
             discTotal += d;
             
-            // 1. Pehle actualPcs calculate karein (Lace, Latkan, Fabric ko single piece hi rakhne ke logic ke sath)
-            let parts = n.split(/[\+\&]/).filter(p => p.trim() !== "");
-            let subPcs = 0;
-            parts.forEach(p => {
-                let partName = p.trim();
-                if (!partName.includes("LACE") && !partName.includes("LATKAN") && !partName.includes("FABRIC")) {
-                    subPcs++;
-                }
-            });
-            let actualPcs = Number(q);
+            // Naya Sahi Logic: 
+// actualPcs sirf counting ke liye zero hoga, lekin qty (q) wahi rahegi jo aapne dali hai
+let multiplier = countPieces(n);
+let actualPcs = (multiplier > 0) ? Number(q) : 0; 
 
+// WhatsApp line banate waqt hum asli quantity 'q' use karenge
+let itemTotal = w - d;
+let line = `• ${n} | ${q} x ₹${itemTotal}`;
             // 2. Ab message formatting mein 'q' ki jagah 'actualPcs' show karein
             let namePart = n.padEnd(15, ' ').substring(0, 15);
             let qtyPart = actualPcs.toString().padStart(2, ' '); 
